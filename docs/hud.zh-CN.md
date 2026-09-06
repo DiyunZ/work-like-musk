@@ -1,27 +1,26 @@
-# 可选的实时 HUD
+# 一体化实时 HUD
 
 [English](hud.md) · [简体中文](hud.zh-CN.md) · [README](../README.zh-CN.md)
 
-HUD 是面向 Codex 本地任务的独立 macOS 配套应用，用于显示 AI 报告的阶段事件。不安装它也可以使用指导功能。
+HUD 是 Work Like Musk 的内置组成部分，面向 macOS 上的 Codex 本地任务，随指导 Skill 一起安装并显示 AI 报告的阶段事件。
 
 ## 编译与安装
 
-先安装核心 Skill，再克隆仓库，在仓库目录运行：
+克隆仓库后，在仓库目录运行统一安装器：
 
 ```sh
-python3 scripts/build.py
 python3 scripts/install.py --language zh-CN
 ```
 
 需要 macOS 14+、Python 3.9+ 和 Apple Swift 命令行工具。构建使用本机架构并进行本地签名。英文界面使用 `--language en`。在终端中不指定语言时会提示选择；首次非交互安装必须指定语言。
 
-安装器默认更新 `~/.codex/skills/work-like-musk/`，加入应用、状态 CLI、对应语言的协议指南、语言配置及 HUD 管理区块。`SKILL.md` 的其余内容和 agent 元数据会保留。其他安装位置使用 `--skill /absolute/skill/directory`。
+安装器自动编译原生应用，把完整产品安装到 `~/.codex/skills/work-like-musk/`，包括指导指令、agent 元数据、状态 CLI、协议指南、语言配置和应用。升级已有安装时，更新 HUD 管理区块和配套文件，保留 `SKILL.md` 其余内容及已有 agent 元数据。其他安装位置使用 `--skill /absolute/skill/directory`。
 
 被替换的文件备份至 `~/.codex/skill-backups/work-like-musk-hud/`。安装器输出具体备份位置并记录事务状态。遇到未完成安装时，先检查原因；不要删除备份来绕过检查。
 
 ## 启用标题跟随
 
-在项目中调用 `$work-like-musk`。HUD 可用时，AI 会为当前任务建立独立会话并打开应用。在 HUD 设置中启用标题跟随，到 **系统设置 → 隐私与安全性 → 辅助功能** 允许 HUD，然后返回 Codex。
+在项目中调用 `$work-like-musk`。AI 会检查安装、为当前任务建立独立会话，并按标准流程打开 HUD。在 HUD 设置中启用标题跟随，到 **系统设置 → 隐私与安全性 → 辅助功能** 允许 HUD，然后返回 Codex。
 
 应用读取当前任务标题及工具栏位置，再通过只读数据库查询，用完整且唯一的标题匹配本地 Codex 任务身份。它不读取聊天消息、不截屏，也不修改 Codex 控件。本项目不会安装网络服务、登录项或后台守护进程。AI 宿主有其自己的数据处理方式，与 HUD 独立。
 
@@ -52,7 +51,7 @@ CLI 默认使用真实的 `CODEX_THREAD_ID`。其他环境需要用 `--task` 提
 
 - **没有面板：** 返回已注册的 Codex 任务，检查辅助功能权限及 HUD 设置中的状态，并确认任务标题唯一。
 - **重新编译后权限似乎已开启但仍无效：** macOS 可能保留了旧的本地签名身份。移除旧 HUD 权限项，重新加入已安装的 `assets/FiveStepHUD.app`。
-- **有状态文件但缺少应用：** 编译并安装 HUD，然后重新打开会话。初始化会保留现有进度。
+- **已有指令或状态文件但缺少应用：** 重新运行统一安装器，补齐完整产品后打开会话。初始化会保留现有进度。
 - **提示修订号过期：** 读取最新状态，重新判断事件是否仍然适用，再报告。
 - **运行文件为链接或格式异常：** 保留文件并检查来源。CLI 会拒绝操作，不会直接替换。
 

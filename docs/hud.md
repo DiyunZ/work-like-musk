@@ -1,27 +1,26 @@
-# Optional live HUD
+# Integrated live HUD
 
 [English](hud.md) · [简体中文](hud.zh-CN.md) · [README](../README.md)
 
-The HUD is a standalone macOS companion for local Codex tasks. It renders stage events reported by the agent. Coaching works without it.
+The HUD is a built-in part of Work Like Musk for local Codex tasks on macOS. It renders stage events reported by the coach and is installed with the skill.
 
 ## Build and install
 
-Install the core skill first, then clone the repository and run:
+Clone the repository, then run the unified product installer:
 
 ```sh
-python3 scripts/build.py
 python3 scripts/install.py --language en
 ```
 
 Requires macOS 14+, Python 3.9+, and Apple Swift command-line tools. The build targets the current machine's architecture and signs the app locally. Use `--language zh-CN` for Chinese labels. A terminal install without the language option asks you to choose; a first non-interactive install requires the option.
 
-The installer defaults to `~/.codex/skills/work-like-musk/`. It adds the application, state CLI, selected-language protocol guide, language configuration, and a managed HUD section. It preserves the rest of `SKILL.md` and the agent metadata. Use `--skill /absolute/skill/directory` for another install location.
+The installer builds the native app and installs the complete product to `~/.codex/skills/work-like-musk/`: coaching instructions, agent metadata, state CLI, protocol guides, language configuration, and the application. For an existing installation it updates the managed HUD section and support files while preserving the rest of `SKILL.md` and existing agent metadata. Use `--skill /absolute/skill/directory` for another install location.
 
 Replaced files are backed up under `~/.codex/skill-backups/work-like-musk-hud/`. The installer prints the exact backup path and records its transaction status. An unfinished installation must be inspected before retrying; do not delete its backup to silence the check.
 
 ## Enable title tracking
 
-Invoke `$work-like-musk` for a project. When available, the agent sets up that task's session and opens the app. In the HUD's settings, choose **Enable Title Tracking…**, allow the HUD in **System Settings → Privacy & Security → Accessibility**, and return to Codex.
+Invoke `$work-like-musk` for a project. The agent checks the installation, sets up that task's session, and opens the HUD as part of the standard workflow. In the HUD's settings, choose **Enable Title Tracking…**, allow the HUD in **System Settings → Privacy & Security → Accessibility**, and return to Codex.
 
 The app reads the focused task header and toolbar geometry. It resolves an exact, unique title against local Codex task identity metadata using a read-only database query. It does not read chat messages, capture screenshots, or modify Codex controls. No network service, login item, or daemon is installed by this project. Your AI host has its own data handling, separate from the HUD.
 
@@ -52,7 +51,7 @@ The [agent protocol guide](../skills/work-like-musk/references/live-progress.md)
 
 - **No panel:** return to the registered Codex task, check Accessibility permission and the status in HUD settings, and ensure the task title is unique.
 - **Permission appears enabled after a rebuild:** macOS may retain the previous locally signed app identity. Remove the outdated HUD entry and add the installed `assets/FiveStepHUD.app` again.
-- **State exists but the app is missing:** build and install the HUD, then reopen the session. Setup preserves existing progress.
+- **State or instructions exist but the app is missing:** rerun the unified installer to complete the product, then reopen the session. Setup preserves existing progress.
 - **CLI says a revision is stale:** read the latest state and reassess the event before reporting it again.
 - **Linked or malformed runtime files:** preserve them and inspect their origin. The CLI rejects them rather than replacing them.
 

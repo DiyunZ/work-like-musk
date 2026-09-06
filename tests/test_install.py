@@ -3,6 +3,7 @@ import importlib.util
 import io
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -200,6 +201,103 @@ class InstallTests(unittest.TestCase):
         result = subprocess.run(["/usr/bin/xattr", "-p", "org.fivestephud.test", str(self.skill / "SKILL.md")],
                                 check=True, capture_output=True, text=True)
         self.assertEqual(result.stdout.strip(), "keep-me")
+
+    def test_fresh_install_contains_skill_and_hud(self):
+        self.skill = self.base / "fresh-skill"
+        result = self.install()
+        source = ROOT / "skills/work-like-musk"
+        for relative in ("agents/openai.yaml", "scripts/five_step.py",
+                         "references/live-progress.md", "references/live-progress.zh-CN.md"):
+            self.assertEqual((self.skill / relative).read_bytes(), (source / relative).read_bytes())
+        self.assertEqual((self.skill / "SKILL.md").read_bytes(), (source / "SKILL.md").read_bytes())
+        self.assertTrue(os.access(self.skill / "assets/FiveStepHUD.app/Contents/MacOS/FiveStepHUD", os.X_OK))
+        manifest = json.loads((Path(result["backupPath"]) / "manifest.json").read_text())
+        self.assertEqual(manifest["status"], "installed")
+
+    def test_fresh_install_failure_leaves_no_partial_skill(self):
+        self.skill = self.base / "fresh-skill"
+        installer = self.installer_module()
+        real_replace = os.replace
+
+        def fail_entrypoint(source, target):
+            if Path(target) == (self.skill / "SKILL.md").resolve():
+                raise OSError("Injected entrypoint publication failure")
+            return real_replace(source, target)
+
+        with mock.patch.object(installer.os, "replace", side_effect=fail_entrypoint):
+            with self.assertRaisesRegex(OSError, "Injected"):
+                installer.install(self.skill, self.app, self.base / "backups", language="en")
+        self.assertFalse(self.skill.exists())
+        manifests = list((self.base / "backups").glob("*/manifest.json"))
+        self.assertEqual(len(manifests), 1)
+        self.assertEqual(json.loads(manifests[0].read_text())["status"], "rolled_back")
+
+    def test_existing_unrelated_directory_is_not_used(self):
+        self.skill = self.base / "unrelated"
+        self.skill.mkdir()
+        (self.skill / "keep.txt").write_text("unrelated work")
+        result = self.invoke()
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertEqual(list(self.skill.iterdir()), [self.skill / "keep.txt"])
+        self.assertEqual((self.skill / "keep.txt").read_text(), "unrelated work")
+
+    def test_fresh_install_refuses_unfinished_transaction(self):
+        self.skill = self.base / "fresh-skill"
+        manifest = self.base / "backups/previous/manifest.json"
+        manifest.parent.mkdir(parents=True)
+        previous = json.dumps({"skillPath": str(self.skill.resolve()), "status": "installing"})
+        manifest.write_text(previous)
+        result = self.invoke()
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("unfinished installation", result.stderr)
+        self.assertFalse(self.skill.exists())
+        self.assertEqual(manifest.read_text(), previous)
+
+    def fixture_checkout(self, fail_build=False):
+        checkout = self.base / "checkout"
+        (checkout / "scripts").mkdir(parents=True)
+        shutil.copytree(ROOT / "skills/work-like-musk", checkout / "skills/work-like-musk")
+        (checkout / "scripts/build.py").write_text(
+            "from pathlib import Path\nimport shutil\n"
+            "root = Path(__file__).resolve().parents[1]\n"
+            "(root / 'build-attempted').write_text('yes')\n" +
+            ("raise SystemExit(3)\n" if fail_build else
+             f"shutil.copytree({str(self.app)!r}, root / 'dist/FiveStepHUD.app')\n"))
+        return checkout
+
+    def run_main(self, installer, checkout, extra=()):
+        args = [str(INSTALLER), "--skill", str(self.skill), "--language", "en",
+                "--backup-root", str(self.base / "backups"), *extra]
+        with mock.patch.object(installer, "ROOT", checkout), \
+             mock.patch.object(installer.sys, "argv", args), \
+             mock.patch.object(installer.sys, "stdout", new_callable=io.StringIO), \
+             mock.patch.object(installer.sys, "stderr", new_callable=io.StringIO):
+            return installer.main()
+
+    def test_main_builds_hud_and_installs_complete_product(self):
+        self.skill = self.base / "fresh-skill"
+        installer = self.installer_module()
+        checkout = self.fixture_checkout()
+        self.assertEqual(self.run_main(installer, checkout), 0)
+        self.assertTrue((checkout / "build-attempted").exists())
+        self.assertTrue((self.skill / "SKILL.md").exists())
+        self.assertTrue((self.skill / "assets/FiveStepHUD.app/Contents/MacOS/FiveStepHUD").exists())
+
+    def test_failed_build_preserves_existing_installation(self):
+        installer = self.installer_module()
+        checkout = self.fixture_checkout(fail_build=True)
+        self.assertEqual(self.run_main(installer, checkout), 2)
+        self.assertTrue((checkout / "build-attempted").exists())
+        self.assertEqual((self.skill / "SKILL.md").read_bytes(), ORIGINAL)
+        self.assertFalse((self.skill / "assets").exists())
+        self.assertFalse((self.base / "backups").exists())
+
+    def test_unsupported_host_does_not_install_partial_product(self):
+        installer = self.installer_module()
+        with mock.patch.object(installer.sys, "platform", "linux"):
+            self.assertEqual(self.run_main(installer, ROOT, ("--app", str(self.app))), 2)
+        self.assertEqual((self.skill / "SKILL.md").read_bytes(), ORIGINAL)
+        self.assertFalse((self.skill / "assets").exists())
 
 
 if __name__ == "__main__":

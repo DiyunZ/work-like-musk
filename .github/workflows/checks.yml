@@ -16,7 +16,7 @@ jobs:
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v
       - name: Native HUD tests
         run: python3 scripts/test_native.py
-      - name: Build and verify app signature
+      - name: Install the complete product and verify its signature
         run: |
-          python3 scripts/build.py
-          codesign --verify --deep --strict dist/FiveStepHUD.app
+          python3 scripts/install.py --skill "$RUNNER_TEMP/work-like-musk" --backup-root "$RUNNER_TEMP/work-like-musk-backups" --language en
+          codesign --verify --deep --strict "$RUNNER_TEMP/work-like-musk/assets/FiveStepHUD.app"

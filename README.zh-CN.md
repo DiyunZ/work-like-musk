@@ -2,14 +2,14 @@
 
 ![Work Like Musk — five-step coaching for AI agents](docs/assets/work-like-musk-hero.png)
 
-<p align="center"><strong>让 AI 带着教练的判断力，陪你把项目一步步做好。</strong></p>
+<p align="center"><strong>让 Codex 带着教练的判断力工作，用实时进度条看清每一步。</strong></p>
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-635BFF?style=flat-square&labelColor=171717"></a>
   <a href="skills/work-like-musk/SKILL.md"><img alt="Agent Skill" src="https://img.shields.io/badge/Agent-Skill-635BFF?style=flat-square&labelColor=171717"></a>
-  <a href="docs/hud.zh-CN.md"><img alt="Optional HUD: macOS 14+" src="https://img.shields.io/badge/Optional_HUD-macOS_14%2B-635BFF?style=flat-square&labelColor=171717"></a>
+  <a href="docs/hud.zh-CN.md"><img alt="Integrated HUD: macOS 14+" src="https://img.shields.io/badge/Integrated_HUD-macOS_14%2B-635BFF?style=flat-square&labelColor=171717"></a>
 </p>
 
-**Work Like Musk** 用 **质疑需求 → 删除 → 简化 → 加速 → 自动化** 指导 AI 开展项目。在投入工作前，AI 会审视自己的方案，解释一条具体建议，付诸行动，再用结果检验判断。
+**Work Like Musk** 将 Codex 项目教练与原生进度 HUD 整合为同一产品，用 **质疑需求 → 删除 → 简化 → 加速 → 自动化** 指导 AI 开展项目。在投入工作前，AI 会审视自己的方案，解释一条具体建议，付诸行动，再用结果检验判断。
 
 **默认每完成一步，都等你回应。** 需要时，你也可以明确要求连续推进。
 
@@ -18,19 +18,21 @@
 - **尽早发现多余工作。** 先追问需求为什么存在，再围绕它实现。
 - **看懂背后的判断。** 每条关键建议都有理由、下一步行动和验证方式。
 - **自己掌握节奏。** 当前步骤完成后，下一步保持待开始，直到你继续。
-- **知道“完成”意味着什么。** 最终回复保留工作范围、证据、未解决的问题和下一步。
+- **在任务标题旁看清进度。** 内置 HUD 显示当前阶段，最终回复保留工作范围、证据、未解决的问题和下一步。
 
 ## 安装
 
-通过 [Skills CLI](https://github.com/vercel-labs/skills) 安装到 Codex：
+完整产品支持 **macOS 14+ 上的 Codex 本地任务**，需要 **Python 3.9+** 和 **Apple Swift 命令行工具**。统一安装器一次完成指导 Skill、状态工具及原生 HUD 的编译和安装：
 
 ```sh
-npx skills add DiyunZ/work-like-musk --skill work-like-musk --agent codex --global --copy --yes
+git clone https://github.com/DiyunZ/work-like-musk.git
+cd work-like-musk
+python3 scripts/install.py --language zh-CN
 ```
 
-使用其他受支持的 agent 时，去掉 `--agent codex --yes`，按提示选择。核心是 Markdown Skill；原生 HUD 为可选功能，需要单独安装。本项目以 Codex 为开发和验证环境，其他宿主的表现取决于其 Skill 支持和指令规则。
+英文 HUD 使用 `--language en`。默认安装到 `~/.codex/skills/work-like-musk/`。安装后新建 Codex 任务并调用 `$work-like-musk`，它会初始化当前任务进度并打开 HUD。首次使用时，在 HUD 设置中启用标题跟随，并授予该应用 macOS 辅助功能权限。
 
-也可以手动把 [`skills/work-like-musk`](skills/work-like-musk) 复制到 agent 的 Skill 目录。Codex 默认的个人安装位置为 `~/.codex/skills/work-like-musk/`。安装后新建任务，让它发现新 Skill。
+同一个命令也用于升级，并会备份被替换的文件。之前只安装了 Markdown Skill 的用户，运行这个安装器即可补齐完整产品。自定义目录使用 `--skill /absolute/skill/directory`。缺少 HUD 代表配置尚未完整，agent 会说明问题并修复安装。
 
 ## 开始使用
 
@@ -40,7 +42,7 @@ $work-like-musk
 每次指导并完成一个步骤，等我回应后再进入下一步。
 ```
 
-AI 首先明确真实目标，以及 **质疑需求** 这一步的验收条件。它可以在当前阶段检查项目、执行已授权的工作。针对当前结果的追问不会自动开启后续阶段。
+AI 首先检查安装、启动当前任务的 HUD，再明确真实目标及 **质疑需求** 这一步的验收条件。它可以在当前阶段检查项目、执行已授权的工作。针对当前结果的追问不会自动开启后续阶段。
 
 一次阶段收尾可以这样表达：
 
@@ -73,37 +75,27 @@ AI 首先明确真实目标，以及 **质疑需求** 这一步的验收条件�
 | 每步停下来 **（默认）** | “完成这一步，说明证据，然后等我。” |
 | 连续推进 | “各步骤之间不用等待，最后保留每一步的结论和证据。” |
 | 自己练习判断 | “一次只问我一个问题，让我自己推理。” |
-| 只要指导，不开 HUD | “使用这个 Skill，但不要显示进度面板。” |
 
 可以用中文或英文交流，指导会跟随对话语言。`SKILL.md` 本身使用英文。
 
-## 可选：实时 macOS HUD
+## 进度就显示在任务标题旁
 
-配套应用将 AI 报告的阶段显示在当前 Codex 任务标题旁，也提供浮动显示和菜单栏回退。支持中英文、按任务隔离的进度、悬停说明和外观设置。
+一体化 HUD 将 AI 报告的阶段显示在当前 Codex 任务标题旁，也提供浮动显示和菜单栏回退。支持中英文、按任务隔离的进度、悬停说明和外观设置。
 
 - 旋转圆环表示正在执行；红色呼吸圆点表示正在等你发出下一步指令。
 - 完成标记跟随 AI 提供的证据和阶段收尾，面板本身不会独立验证项目。
 - 使用本地文件和原生应用。HUD 代码不需要网络服务或 API key。
 
-需要 **macOS 14+、Python 3.9+ 和 Apple Swift 命令行工具**。先安装 Skill，再运行：
-
-```sh
-git clone https://github.com/DiyunZ/work-like-musk.git
-cd work-like-musk
-python3 scripts/build.py
-python3 scripts/install.py --language zh-CN
-```
-
-英文界面使用 `--language en`。安装器默认更新 Codex 的个人 Skill 目录；其他位置可用 `--skill` 指定。被替换的文件会先备份。应用在本机编译并作临时签名，本仓库不提供经过 Apple 公证的二进制发行版。
+HUD 随 Skill 一起安装，每个已启用的项目会话都会启动它。原生进程在本地管理显示状态，agent 负责指导和报告进度。应用在本机编译并作临时签名，本仓库不提供经过 Apple 公证的二进制发行版。
 
 标题跟随和恢复方法见 [HUD 安装、权限与故障排查](docs/hud.zh-CN.md)。Codex 适配依赖本地桌面任务元数据，可能需要随 Codex 更新而调整。
 
 ## 仓库内容
 
 ```text
-skills/work-like-musk/   Installable skill, protocol guide, and state CLI
-native/                 Optional SwiftUI/AppKit HUD
-scripts/                Build, HUD installer, preview, and native test runner
+skills/work-like-musk/   Coaching instructions, protocol guide, and state CLI
+native/                 Integrated SwiftUI/AppKit progress HUD
+scripts/                Unified product installer, build, preview, and test runner
 tests/                  State, installer, and native regression checks
 docs/                   HUD guide and original English artwork
 ```

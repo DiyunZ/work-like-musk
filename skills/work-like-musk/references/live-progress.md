@@ -1,16 +1,48 @@
-# Optional Live Progress HUD
+# Integrated Live Progress HUD
 
-The HUD supports the coaching workflow in `SKILL.md`. The assistant's project
-judgment and advice determine the next action; the display reflects reported work.
-When the user explicitly invokes this skill for project work, initialize/open a
-separate session when the HUD is enabled and available. Use an existing session
-on later turns. Mere mention or an internal method review does not opt unrelated
-tasks in. If the user opts out or the HUD is unavailable, continue coaching.
+Work Like Musk combines the coaching workflow in `SKILL.md` and its live progress
+HUD in one product for local Codex on macOS 14+. The assistant's judgment and
+advice determine the next action; the HUD reflects reported work. Every activated
+project session includes the HUD. Initialize/open a separate session on project
+invocation and use that session on later turns. Mere mention or an internal
+method review does not activate unrelated tasks.
 
 This installation selects English for new HUD report reasons unless otherwise
 requested. Coach in the user's conversation language. Existing titles and reasons
 remain as recorded; CLI identifiers and JSON fields use fixed English values.
 HUD reports do not replace project verification or required deliverables.
+
+## Installation readiness
+
+Check the host and the skill directory before starting a tracked project stage.
+The complete installation includes `SKILL.md`, `scripts/five_step.py`, and
+`assets/FiveStepHUD.app/Contents/MacOS/FiveStepHUD` in the same skill directory.
+Local Codex on macOS 14+ is the supported environment. On an unsupported host,
+explain the requirement; do not present text-only coaching as a complete product
+or attempt to run a macOS app there.
+
+If the app or helper is missing, report that setup is incomplete and repair it
+within existing authorization. Use an existing verified checkout of
+[this repository](https://github.com/DiyunZ/work-like-musk), or obtain that
+repository when authorized, and run its unified installer:
+
+```sh
+python3 scripts/install.py --skill "/absolute/path/to/the/installed/skill" --language en
+```
+
+Replace the example path with the actual directory of the loaded `SKILL.md`.
+The installer builds the HUD and installs the whole product, including a fresh
+skill when absent. It also repairs an older installation that contains only the
+instructions. Do not call an installation complete solely because the Markdown
+is present. A build or install failure remains a setup problem; state the concrete
+cause instead of silently switching to a normal text-only mode. Independent
+inspection can continue while a required setup condition is blocked.
+
+After installation, run `setup` below to register and open the current task.
+For first-time title tracking, the user enables it in HUD Settings and grants
+the app macOS Accessibility permission. Respect the host's permission boundaries;
+do not grant that permission automatically. Files installed, app opened, and HUD
+visibly attached are distinct observations. Report only the state verified.
 
 ## Coaching pace and stage events
 
@@ -64,8 +96,9 @@ python3 "$HOME/.codex/skills/work-like-musk/scripts/five_step.py" setup \
 ```
 
 `setup` creates the current task's session, or preserves and reopens an existing
-one. It opens the progress UI without resetting progress. `--no-open` only
-initializes/validates the state. The task ID defaults exclusively to
+one. It opens the progress UI without resetting progress. `--no-open` is for
+isolated tests or state maintenance; it does not complete normal product startup.
+The task ID defaults exclusively to
 `CODEX_THREAD_ID`; if unavailable, obtain the actual task ID and pass `--task`.
 Do not guess an ID, use a shared placeholder, or borrow another task's session.
 

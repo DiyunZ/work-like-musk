@@ -1,6 +1,6 @@
 # Contributing
 
-Keep changes focused on useful project coaching or the optional local HUD. Open an issue or pull request with the problem, the proposed behavior, and the evidence that supports it.
+Keep changes focused on the integrated project coaching and local HUD experience. Open an issue or pull request with the problem, the proposed behavior, and the evidence that supports it.
 
 ## Local checks
 

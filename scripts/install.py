@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Install the local HUD into an existing work-like-musk skill, with backups."""
+"""Build and install Work Like Musk, including its skill and native progress HUD."""
 
 import argparse
 from datetime import datetime, timezone
-import fcntl
 import hashlib
 import json
 import os
 from pathlib import Path
+import platform
 import re
 import shutil
 import subprocess
@@ -21,15 +21,19 @@ END = "<!-- five-step-hud:end -->"
 LANGUAGES = ("en", "zh-CN")
 LANGUAGE_CONFIG = "assets/hud-config.json"
 SECTION = f"""{START}
-## Optional Live Progress HUD
+## Integrated Live Progress HUD
 
-The HUD displays progress reported by the coach. On explicit project invocation,
-HUD setup requests, or turns with an existing session, read
-[the live progress guide](references/live-progress.md). Initialize/open this task's
-own session when enabled and available; continue coaching if the HUD is unavailable
-or the user opts out. Explain scoped checkpoints and evidence before stage reports;
-keep the stage record and next move in the final response, even when commentary
-collapses. Report actual stage events with the current revision.
+Work Like Musk combines project coaching and a live progress HUD for local Codex
+on macOS 14+. On project invocation and turns with an existing session, read
+[the live progress guide](references/live-progress.md). Check the installation,
+initialize/open this task's own session, and report actual stage events with the
+current revision. The HUD is part of the standard workflow. A missing app or
+failed setup is an incomplete product setup: explain the concrete issue and
+repair it within existing authorization. Do not silently substitute text-only
+coaching or claim the HUD is ready. Unsupported hosts require the supported
+environment; useful independent inspection can continue while setup is blocked.
+Explain scoped checkpoints and evidence before stage reports. Keep the stage
+record and next move in the final response, even when commentary collapses.
 By default, complete only the current stage and wait for the user's reply before
 the next; continuous execution requires an explicit request. The guide supplies the confirmed-skip and
 reopening protocol; display state does not decide the next project action.
@@ -37,11 +41,14 @@ Coach in the user's conversation language. Use English for new HUD report reason
 unless requested otherwise; preserve existing report text as recorded.
 {END}"""
 CHINESE_SECTION = f"""{START}
-## 可选的实时进度 HUD
+## 一体化实时进度 HUD
 
-HUD 显示教练报告的实际进度。用户明确调用本 Skill 开展项目、要求配置 HUD，或当前
-任务已有进度会话时，阅读[实时进度指南](references/live-progress.md)。启用且可用时，
-为本任务独立初始化并打开会话；HUD 不可用或用户不希望启用时，继续提供指导。
+Work Like Musk 将项目指导与实时进度 HUD 整合为同一产品，支持 macOS 14+ 上的
+Codex 本地任务。调用本 Skill 开展项目或已有进度会话时，阅读
+[实时进度指南](references/live-progress.md)，检查安装，为本任务独立初始化并打开会话。
+HUD 是标准工作流程的一部分。缺少应用或配置失败意味着产品尚未配置完整：说明具体问题，
+在已有授权内修复，不静默改用纯文字指导，也不宣称 HUD 已就绪。不受支持的宿主需要
+切换到受支持环境；配置受阻期间可以继续不依赖它的检查工作。
 报告阶段前先说明对应范围的验收条件和证据；最终回复保留阶段记录及下一步，
 不依赖可能折叠的过程消息。携带当前修订号报告实际阶段变化。
 默认每完成一步都等待用户回应，下一步保持待开始；只有用户明确要求时才跨步骤持续执行。
@@ -114,10 +121,19 @@ def remove_item(target):
 
 
 def install(skill, app, backup_root, language=None):
-    skill = skill.expanduser().resolve(strict=True)
+    import fcntl
+
+    skill = skill.expanduser()
+    if skill.is_symlink() and not skill.exists():
+        raise ValueError("The skill directory is a broken link; preserve and inspect it first")
+    skill = skill.resolve()
+    existed_before = skill.exists()
     entrypoint = skill / "SKILL.md"
-    original_bytes = entrypoint.read_bytes()
-    original = original_bytes.decode("utf-8")
+    if existed_before and not entrypoint.is_file():
+        raise ValueError("Existing directory is not a work-like-musk installation; preserve and inspect it first")
+    source_skill = ROOT / "skills/work-like-musk"
+    original_bytes = entrypoint.read_bytes() if existed_before else None
+    original = (original_bytes if original_bytes is not None else (source_skill / "SKILL.md").read_bytes()).decode("utf-8")
     config_path = skill / LANGUAGE_CONFIG
     original_config = config_path.read_bytes() if config_path.exists() else None
     language = language if language is not None else (stored_language(skill) or "en")
@@ -126,7 +142,10 @@ def install(skill, app, backup_root, language=None):
         raise ValueError("Build FiveStepHUD.app before installation")
     sources = {"scripts/five_step.py": ROOT / "skills/work-like-musk/scripts/five_step.py",
                "references/live-progress.md": ROOT / "skills/work-like-musk/references" / ("live-progress.zh-CN.md" if language == "zh-CN" else "live-progress.md"),
+               "references/live-progress.zh-CN.md": source_skill / "references/live-progress.zh-CN.md",
                "assets/FiveStepHUD.app": app.resolve()}
+    if not (skill / "agents/openai.yaml").exists():
+        sources["agents/openai.yaml"] = source_skill / "agents/openai.yaml"
     generated = {"SKILL.md": new_content, LANGUAGE_CONFIG: (json.dumps({"language": language}) + "\n").encode("utf-8")}
     for source in sources.values():
         if not source.exists():
@@ -148,8 +167,10 @@ def install(skill, app, backup_root, language=None):
             previous = json.loads(manifest_path.read_text())
             if previous.get("skillPath") == str(skill) and previous.get("status") == "installing":
                 raise ValueError(f"An unfinished installation needs inspection: {manifest_path}")
-        if entrypoint.read_bytes() != original_bytes:
+        if (entrypoint.read_bytes() if entrypoint.exists() else None) != original_bytes:
             raise ValueError("Skill changed during preflight; retry after the other writer finishes")
+        if not existed_before and skill.exists():
+            raise ValueError("The skill directory appeared during preflight; inspect the other writer's work")
         if (config_path.read_bytes() if config_path.exists() else None) != original_config:
             raise ValueError("Language configuration changed during preflight; retry after the other writer finishes")
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
@@ -158,6 +179,7 @@ def install(skill, app, backup_root, language=None):
         staged = {}
         applied = []
         staging_dirs = []
+        created_dirs = set()
         try:
             for relative, target in targets.items():
                 existed = target.exists()
@@ -166,6 +188,10 @@ def install(skill, app, backup_root, language=None):
                     saved = backup / relative
                     saved.parent.mkdir(parents=True, exist_ok=True)
                     copy_item(target, saved)
+                parent = target.parent
+                while not parent.exists():
+                    created_dirs.add(parent)
+                    parent = parent.parent
                 target.parent.mkdir(parents=True, exist_ok=True)
                 staging_dir = Path(tempfile.mkdtemp(prefix=".five-step-install-", dir=target.parent))
                 staging_dirs.append(staging_dir)
@@ -202,19 +228,36 @@ def install(skill, app, backup_root, language=None):
             (backup / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
             for staging_dir in staging_dirs:
                 shutil.rmtree(staging_dir)
+            if manifest["status"] == "rolled_back":
+                for directory in sorted(created_dirs, key=lambda item: len(item.parts), reverse=True):
+                    try:
+                        directory.rmdir()
+                    except OSError:
+                        pass  # Preserve anything another writer placed here.
     return {"skillPath": str(skill), "backupPath": str(backup), "appPath": str(targets["assets/FiveStepHUD.app"]), "language": language}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--skill", type=Path, default=Path.home() / ".codex/skills/work-like-musk")
-    parser.add_argument("--app", type=Path, default=ROOT / "dist/FiveStepHUD.app")
+    parser.add_argument("--app", type=Path, help="Use an already built HUD; otherwise build the bundled native source")
     parser.add_argument("--backup-root", type=Path, default=Path.home() / ".codex/skill-backups/work-like-musk-hud")
     parser.add_argument("--language", choices=LANGUAGES, help="Interface and guidance language: en / zh-CN; prompts in a terminal, preserves an existing choice otherwise")
     args = parser.parse_args()
     try:
+        if sys.platform != "darwin" or int(platform.mac_ver()[0].split(".")[0]) < 14:
+            raise ValueError("The complete Work Like Musk product requires local Codex on macOS 14 or newer")
         language = choose_language(args.skill, args.language)
-        print(json.dumps(install(args.skill, args.app, args.backup_root, language=language)))
+        app = args.app
+        if app is None:
+            result = subprocess.run([sys.executable, str(ROOT / "scripts/build.py")], capture_output=True, text=True)
+            if result.stdout:
+                print(result.stdout.rstrip(), file=sys.stderr)
+            if result.stderr:
+                print(result.stderr.rstrip(), file=sys.stderr)
+            result.check_returncode()
+            app = ROOT / "dist/FiveStepHUD.app"
+        print(json.dumps(install(args.skill, app, args.backup_root, language=language)))
         return 0
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         print(f"five-step install: {error}", file=sys.stderr)

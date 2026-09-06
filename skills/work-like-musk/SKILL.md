@@ -1,6 +1,6 @@
 ---
 name: work-like-musk
-description: "Use when the user wants ongoing coaching through Musk's five-step method while planning, building, fixing, or improving a project, or when continuing a project already using this coaching. Keep factual questions and straightforward edits scoped to their immediate purpose."
+description: "Use for project coaching with an integrated live progress HUD in local Codex on macOS 14+, or when continuing a project already using Work Like Musk. Keep factual questions and straightforward edits scoped to their immediate purpose."
 ---
 
 # Work Like Musk
@@ -82,15 +82,19 @@ You planned a plugin framework for a single required exporter. A useful interven
 The sequence follows [Everyday Astronaut's 2021 summary of its interview with Elon Musk](https://everydayastronaut.com/starbase-tour-and-interview-with-elon-musk/). Read it when checking the original formulation. The coaching loop, verification, authorization, and collaboration rules are adaptations for this skill.
 
 <!-- five-step-hud:start -->
-## Optional Live Progress HUD
+## Integrated Live Progress HUD
 
-The HUD displays progress reported by the coach. On explicit project invocation,
-HUD setup requests, or turns with an existing session, read
-[the live progress guide](references/live-progress.md). Initialize/open this task's
-own session when enabled and available; continue coaching if the HUD is unavailable
-or the user opts out. Explain scoped checkpoints and evidence before stage reports;
-keep the stage record and next move in the final response, even when commentary
-collapses. Report actual stage events with the current revision.
+Work Like Musk combines project coaching and a live progress HUD for local Codex
+on macOS 14+. On project invocation and turns with an existing session, read
+[the live progress guide](references/live-progress.md). Check the installation,
+initialize/open this task's own session, and report actual stage events with the
+current revision. The HUD is part of the standard workflow. A missing app or
+failed setup is an incomplete product setup: explain the concrete issue and
+repair it within existing authorization. Do not silently substitute text-only
+coaching or claim the HUD is ready. Unsupported hosts require the supported
+environment; useful independent inspection can continue while setup is blocked.
+Explain scoped checkpoints and evidence before stage reports. Keep the stage
+record and next move in the final response, even when commentary collapses.
 By default, complete only the current stage and wait for the user's reply before
 the next; continuous execution requires an explicit request. The guide supplies the confirmed-skip and
 reopening protocol; display state does not decide the next project action.
