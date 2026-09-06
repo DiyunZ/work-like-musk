@@ -271,7 +271,6 @@ struct StageMark: View {
     }
 }
 
-@MainActor
 private struct IconButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
