@@ -1,0 +1,22 @@
+name: Checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Python state and installer tests
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Native HUD tests
+        run: python3 scripts/test_native.py
+      - name: Build and verify app signature
+        run: |
+          python3 scripts/build.py
+          codesign --verify --deep --strict dist/FiveStepHUD.app
