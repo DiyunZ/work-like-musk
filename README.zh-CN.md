@@ -114,4 +114,4 @@ python3 scripts/build.py
 
 五步顺序来自 [Everyday Astronaut 对 2021 年 Elon Musk 访谈的总结](https://everydayastronaut.com/starbase-tour-and-interview-with-elon-musk/)。指导循环、阶段停顿、证据规则及 agent 集成为本项目的改编。
 
-本项目独立开发，与 Elon Musk、其公司或 OpenAI 无隶属或代言关系。[MIT 许可](LICENSE) 在权利存在的范围内适用于项目材料，不授予第三方姓名、肖像或代言权。海报为 [原创 AI 生成的编辑风格插画](docs/assets/artwork.md)。README 借鉴了 [Archify](https://github.com/tt-a1i/archify) 清晰的视觉介绍和语言切换方式，未复用其素材或文案。
+本项目独立开发，与 Elon Musk、其公司或 OpenAI 无隶属或代言关系。[MIT 许可](LICENSE) 在权利存在的范围内适用于项目材料，不授予第三方姓名、肖像或代言权。

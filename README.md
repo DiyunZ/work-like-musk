@@ -114,4 +114,4 @@ These checks cover implementation behavior. They do not establish a general prod
 
 The sequence comes from [Everyday Astronaut's 2021 summary of its interview with Elon Musk](https://everydayastronaut.com/starbase-tour-and-interview-with-elon-musk/). The coaching loop, stage checkpoints, evidence rules, and agent integration are this project's adaptations.
 
-Independent project; not affiliated with or endorsed by Elon Musk, his companies, or OpenAI. The [MIT license](LICENSE) covers project material to the extent rights exist; it grants no endorsement or rights to third-party names or likenesses. The hero is [original AI-generated editorial artwork](docs/assets/artwork.md). README presentation takes inspiration from [Archify](https://github.com/tt-a1i/archify)'s clear visual introduction and language switch; its assets and copy are not reused.
+Independent project; not affiliated with or endorsed by Elon Musk, his companies, or OpenAI. The [MIT license](LICENSE) covers project material to the extent rights exist; it grants no endorsement or rights to third-party names or likenesses.
