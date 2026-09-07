@@ -66,12 +66,14 @@ Consumes: the complete portable installation and runtime from Tasks 1–3. Produ
 - [x] Update instructions to resolve the loaded skill directory, choose the installed display, and use a real session ID or explicit new tracking ID.
 - [x] Preserve one-stage pauses and document that portable windows are bound to named tasks.
 - [x] Add Windows, Linux/Xvfb with a compositor, and macOS Python/Qt jobs; keep native Swift and signature checks on macOS.
-- [ ] Run updated instruction replays, the full local checks, and the public CI matrix. Fix platform-specific failures before claiming support.
-- [ ] Review the complete branch, check publication content, fast-forward the public main branch, and publish the next release under DiyunZ.
+- [x] Run updated instruction replays, the full local checks, and the public CI matrix. Fix platform-specific failures before claiming support.
+- [x] Review the complete branch and check publication content. Resolve the Windows startup/file-sharing and Wayland drag findings.
+
+Release delivery: fast-forward the public main branch and publish v0.3.0 under DiyunZ after verifying the delivery commit's CI. Include only the related source, tests, workflow, and documentation; keep runtime environments, local state, and test artifacts out of Git.
 
 ## Local verification
 
-- Python suite: 105 tests, 104 passed; one real Windows sharing test awaits Windows CI.
-- Qt GUI: 22 real-window tests passed on macOS, including actual compositing and fractional render scales.
+- Python suite: 107 tests, 106 passed; one Windows sharing test skipped locally and passed on the Windows runner.
+- Qt GUI: 24 real-window tests passed on macOS and each CI platform, including actual compositing and fractional render scales.
 - A fresh isolated install created a private Qt environment using Python 3.14 without Qt, then the installed CLI opened and reused the HUD through the configured interpreter.
-- Native Swift tests and signed installation passed locally. Cross-platform CI and final publication remain pending below.
+- Native Swift tests and signed installation passed locally and in CI. All five jobs passed for implementation commit `8a60acd`; see the [verification record](../../verification.md).

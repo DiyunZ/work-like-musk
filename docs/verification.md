@@ -2,6 +2,18 @@
 
 Implementation checks are reproducible through the commands in the README and the [repository CI workflow](../.github/workflows/checks.yml).
 
+The cross-platform implementation at `8a60acd` passed [all five CI jobs](https://github.com/DiyunZ/work-like-musk/actions/runs/34071332204):
+
+| Runner | Observed result |
+| --- | --- |
+| Windows / Python 3.12 | 84 Python tests passed; 23 macOS/POSIX-only tests skipped; complete portable installation passed. |
+| Linux / Python 3.12 | 84 Python tests passed; 23 macOS/Windows-only tests skipped; complete portable installation passed. |
+| Linux / Python 3.9 | 84 Python tests passed; 23 macOS/Windows-only tests skipped; complete portable installation passed. |
+| macOS / Python 3.12 | 106 Python tests passed; one Windows-only test skipped; complete portable installation passed. |
+| Native macOS | Eight native test suites, automatic build, complete installation, and strict signature verification passed. |
+
+All 24 Qt GUI tests ran successfully on each Python runner, including the visible-window transparency capture and all five rendering scales. Local macOS checks also ran 107 Python tests with only the Windows-specific test skipped. Final review found a Wayland drag API issue; the corrected compositor call and preserved stage clicks have a regression test, while physical Wayland interaction remains unverified.
+
 | Area | Checks |
 | --- | --- |
 | Python state CLI | Task isolation, explicit host IDs or generated local IDs, ordered transitions, reopening, revision conflicts, confirmed skips, Unicode-safe output, and protected runtime files. |
