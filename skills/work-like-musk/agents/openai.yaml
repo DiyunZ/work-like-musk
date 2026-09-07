@@ -1,4 +1,4 @@
 interface:
   display_name: "Work Like Musk"
-  short_description: "Five-step project coaching with an integrated progress HUD"
-  default_prompt: "Use $work-like-musk to start the integrated progress HUD and coach one project stage at a time, explain its advice and completion evidence, retain the stage record in the final response, and wait for my reply before the next stage."
+  short_description: "Five-step project coaching with advice and evidence"
+  default_prompt: "Use $work-like-musk to coach one project stage at a time, explain its advice and completion evidence, retain the stage record in the final response, and wait for my reply before the next stage."

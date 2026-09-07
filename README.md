@@ -1,142 +1,110 @@
 <p align="center"><strong>English</strong> · <a href="README.zh-CN.md">简体中文</a></p>
 
-![Work Like Musk — five-step coaching for AI agents](docs/assets/work-like-musk-hero.png)
+# Work Like Musk
 
-<p align="center"><strong>Give your AI agent a project coach and a live progress strip.</strong></p>
-<p align="center">
-  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-635BFF?style=flat-square&labelColor=171717"></a>
-  <a href="skills/work-like-musk/SKILL.md"><img alt="Agent Skill" src="https://img.shields.io/badge/Agent-Skill-635BFF?style=flat-square&labelColor=171717"></a>
-  <a href="docs/hud.md"><img alt="Windows · Linux · macOS" src="https://img.shields.io/badge/HUD-Windows_%7C_Linux_%7C_macOS-635BFF?style=flat-square&labelColor=171717"></a>
-</p>
+**Five-step project coaching for AI agents.**
 
-**Work Like Musk** combines an AI project coach and an integrated progress HUD across Windows, Linux desktops, and macOS. It guides the agent through **question → delete → simplify → accelerate → automate**. Before committing effort, the agent challenges its own plan, explains a concrete recommendation, acts on it, and checks the result.
+Work Like Musk uses **question requirements → delete → simplify → accelerate → automate** to guide project work. Before committing effort, the assistant examines its own proposal, explains one concrete recommendation, acts on it, and checks the result.
 
-**The default is one stage, then your reply.** You can ask for continuous execution when you want it.
+Coaching happens in the conversation. **By default, the assistant completes one stage and waits for your reply.** You can explicitly request continuous execution or practice making the judgments yourself.
 
 ## Why use it?
 
-- **Catch unnecessary work early.** Question the requirement before building around it.
-- **Learn from the decisions.** Get a specific recommendation, the reason behind it, and the next check.
-- **Keep control of the pace.** Finishing a stage leaves the next one pending until you continue.
-- **See which task the progress belongs to.** The built-in HUD shows the current stage; final replies retain scope, evidence, unresolved limits, and the next move.
+- **Identify unnecessary work early.** Question why a requirement exists before building around it.
+- **Understand the judgment.** Each consequential recommendation connects a reason, an action, and a success signal.
+- **Keep control of the pace.** The next stage waits until you ask to continue.
+- **Keep the outcome reviewable.** Final replies retain the deliverable, evidence, unresolved limits, and next move.
 
 ## Install
 
-Requires **Python 3.9+** and a graphical desktop for the floating HUD. Local agents must be able to load Agent Skills and run commands. The installer includes the coaching skill, progress tools, and HUD, and prepares its Qt runtime automatically. The first portable install needs internet access if Qt is not already available.
+The skill consists of Markdown instructions and optional Codex UI metadata. Using it requires a host that can load Agent Skills; project execution also needs the tools and authorization appropriate to that work.
+
+The installer uses **Python 3.9+ and the standard library**:
 
 ```sh
 git clone https://github.com/DiyunZ/work-like-musk.git
 cd work-like-musk
-python3 scripts/install.py --agent claude-code --language en
+python3 scripts/install.py --agent claude-code
 ```
 
-On **Windows / PowerShell**, use:
+On Windows / PowerShell, use `python` instead of `python3`.
 
-```powershell
-python scripts/install.py --agent claude-code --language en
-```
-
-Choose your agent; each preset uses its documented personal skill directory:
-
-| `--agent` | Destination under your home directory | How to start |
+| `--agent` | Personal installation directory | Invocation |
 | --- | --- | --- |
 | `codex` | `.codex/skills/work-like-musk` | `$work-like-musk` |
 | `claude-code` | `.claude/skills/work-like-musk` | `/work-like-musk` |
 | `cursor` | `.cursor/skills/work-like-musk` | Ask to use `work-like-musk` |
 | `gemini-cli` | `.gemini/skills/work-like-musk` | Ask to use `work-like-musk` |
 | `opencode` | `.config/opencode/skills/work-like-musk` | Ask to use `work-like-musk` |
-| `generic` | `.agents/skills/work-like-musk` | Use your host's skill loader |
+| `generic` | `.agents/skills/work-like-musk` | Use the host's supported skill invocation |
 
-Restart or reload skills in your agent after installation. OpenCode respects `XDG_CONFIG_HOME`. For a custom or project-level directory, add `--skill "<actual-skill-directory>"`. Other agents need compatible Agent Skills discovery and local command execution; `generic` does not add capabilities to a host that lacks them. See [compatibility and primary host references](docs/compatibility.md).
+Restart your agent or reload Skills after installation. The default preset is Codex. OpenCode respects `XDG_CONFIG_HOME`. Use `--skill "<actual-skill-directory>"` for a custom or project-level location. See [compatibility and host references](docs/compatibility.md).
 
-Use `--language zh-CN` for Chinese HUD labels and report guidance. If no agent is specified, the default is Codex. On **macOS 14+ with Codex desktop**, the installer builds the existing native title-following HUD and requires Apple Swift command-line tools; this backend does not need Qt. Use `--hud portable` for Codex CLI or to choose the floating window on macOS.
+The same command upgrades an existing installation, preserving custom guidance, invocation policy, and supported file metadata. Changed files are backed up outside the skill directory; the command prints the backup path. An unfinished installation must be inspected before another upgrade can proceed.
 
-The same command updates an installation, preserves its language/backend choice and customized instructions, and backs up replaced files. Restart the HUD after upgrading so it loads the updated code. A missing HUD is an incomplete setup to repair. See [HUD setup and troubleshooting](docs/hud.md).
+**Upgrading from the HUD version:** the installer removes the old managed HUD instructions and backs up and removes its known app, scripts, guides, and configuration files. Custom files and project session data are preserved. Close an already-running old HUD. Shared environments outside the skill directory are left intact. Omit the former `--hud`, `--app`, and `--language` options; coaching follows your conversation language.
 
-## Try it
+## Start a project
 
 ```text
 $work-like-musk
-Help me build a tool that turns a CSV file into a weekly report.
-Coach one stage at a time and wait for my reply before the next.
+Help me build a small tool that converts a CSV file into a weekly report.
+Coach and complete one stage at a time, then wait for my reply.
 ```
 
-In other agents, invoke the skill as shown in the table or ask “Use work-like-musk.” The agent checks the installation, starts the task's HUD, and establishes the actual outcome and the evidence needed to complete **Question**. It can inspect the project and do authorized work inside that stage. A clarification stays within the current stage.
+Use your host's invocation from the table. The assistant first clarifies the real outcome and the acceptance condition for **Question requirements**. It can inspect the project and carry out authorized work within that stage. A clarification about the current result does not automatically start the next stage.
 
-An illustrative checkpoint might look like this:
+A stage closeout might look like this:
 
-> **01 · Question — complete**
+> **01 · Question requirements — complete**
 >
-> The required result is one local report from one CSV. A dashboard and scheduled service are implementation choices, so let's test whether they have a job before building them.
+> The required outcome is one local report from one CSV. A dashboard and scheduled service are implementation choices; assess whether they are needed before building them.
 >
-> **Evidence:** the required output, input format, and acceptance check are agreed. No runtime behavior is verified yet.
+> **Evidence:** output, input format, and acceptance criteria are agreed; runtime behavior has not been tested.
 >
-> **Next:** examine what can be deleted. Steps 02–05 remain pending. Reply “continue to Delete” to begin.
+> **Next:** examine what can be deleted. Stages 02–05 remain pending. Ask to continue with Delete when ready.
 
-This is a fictional example of the intended coaching style, not a quote from Musk or a recorded user conversation.
+This is a fictional coaching example, not a Musk quotation or a real user conversation.
 
-## Five steps, with a reason to move on
+## Five steps, each grounded in evidence
 
-| Step | The question | Evidence to look for |
+| Step | Core question | Evidence to seek |
 | --- | --- | --- |
-| **01 Question** | What problem does this requirement solve? | A clear outcome, source, constraints, and acceptance check. |
-| **02 Delete** | Can this part disappear? | A reversible trial showing removal works, or a reason to retain it. |
-| **03 Simplify** | What is the smallest complete path? | A useful end-to-end result with the necessary checks. |
-| **04 Accelerate** | Where does time actually go? | An observed bottleneck and a relevant before/after comparison. |
-| **05 Automate** | Is this worth repeating automatically? | A stable operation, a worthwhile benefit, and tested failure handling. |
+| **01 Question requirements** | What problem does this requirement solve? | A clear outcome, source, constraints, and acceptance criteria. |
+| **02 Delete** | Can this part disappear entirely? | A reversible trial supporting removal or retention. |
+| **03 Simplify** | What is the smallest complete path to the outcome? | A usable end-to-end result and relevant checks. |
+| **04 Accelerate** | Where does the time actually go? | An observed bottleneck and a relevant before/after comparison. |
+| **05 Automate** | Is this operation worth automating? | A stable operation, worthwhile benefit, and verified failure handling. |
 
-The skill revisits earlier steps when evidence changes. A design checkmark describes design progress; runtime claims need runtime evidence. Stages outside your requested scope stay pending. The five steps are decision tools, not a requirement to invent five changes.
+New evidence can reopen an earlier stage. A design checkpoint establishes design progress; operational claims need execution evidence. Stages outside the requested scope remain pending. The method guides decisions without inventing five changes for every task.
 
 ## Choose your pace
 
 | You want… | Say… |
 | --- | --- |
-| Stage checkpoints **(default)** | “Finish this stage, show the evidence, then wait.” |
-| Continuous execution | “Work through the stages without waiting; retain each checkpoint in the final reply.” |
-| Hands-on practice | “Ask me one question at a time and let me do the reasoning.” |
+| A pause after each stage **(default)** | “Complete this stage, explain the evidence, then wait.” |
+| Continuous execution | “Proceed between stages without waiting; retain each stage's conclusion and evidence.” |
+| Personal reasoning practice | “Ask me one question at a time and let me reason it through.” |
 
-Ask in English or Chinese; the coaching follows your conversation language. The instructions in `SKILL.md` are English.
+Coaching follows the conversation language. `SKILL.md` itself is written in English.
 
-## Progress that names its task
-
-The portable HUD is a movable floating strip with the **task title, project, and task identifier**. It stays bound to that task when you switch apps or conversations; different tasks can have separate windows. Agents without a host session ID get a unique local tracking ID and retain it in the current conversation.
-
-The progress core follows the native Mac design: the same compact layout, colors, state badges, and animation timing, on a truly transparent background. Vector drawing stays sharp on high-DPI screens and fractional scaling. Linux needs a compositing desktop; see [compatibility](docs/compatibility.md).
-
-- A rotating ring indicates active work; a red breathing indicator marks the next stage waiting for your prompt.
-- Hover for the reported reason and time. The menu controls Always on top and Reduce motion.
-- Checkmarks reflect the agent's stated evidence. The panel does not verify the project independently.
-- Local files and the GUI runtime are sufficient; the HUD has no network service or API-key requirement.
-
-The native macOS/Codex backend additionally supports verified title following, menu-bar placement, and appearance controls. Enable title tracking and grant macOS Accessibility permission in HUD Settings. It depends on local Codex task metadata and may need updates when Codex changes. The app is built and ad-hoc signed locally.
-
-The HUD is included in every activated project session. Headless terminals, SSH sessions without a display, and cloud-only agents cannot show the complete product locally.
-
-## What is included?
+## Repository and checks
 
 ```text
-skills/work-like-musk/   Coaching instructions, protocol, state CLI, and portable HUD
-native/                 macOS/Codex SwiftUI/AppKit HUD
-scripts/                Unified product installer, build, preview, and test runner
-tests/                  State, installer, portable GUI, and native regression checks
-docs/                   HUD guide and original English artwork
+skills/work-like-musk/   Coaching instructions and agent metadata
+scripts/install.py      Installer and migration from the former HUD version
+tests/                  Installation, migration, and recovery checks
+docs/                   Compatibility and verification scope
 ```
 
-Run the Python checks with Qt and an active desktop (`python` on Windows):
-
 ```sh
-python3 -m pip install 'PySide6-Essentials>=6.8,<7'
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
-Linux CI uses Xvfb with a compositor; [CONTRIBUTING](CONTRIBUTING.md) has the local command. The native macOS backend also runs `python3 scripts/test_native.py` and `python3 scripts/build.py`. CI exercises Windows, Linux, macOS, and the minimum Python version.
+The CI matrix covers Windows, Linux, macOS, and the minimum Python version without GUI dependencies. Implementation checks do not establish a general productivity benefit or guarantee future agent compliance. See [verification scope](docs/verification.md) and [contributing](CONTRIBUTING.md).
 
-These checks cover implementation behavior. They do not establish a general productivity improvement or guarantee that an agent will always follow the skill. See [verification scope](docs/verification.md) and [contributing](CONTRIBUTING.md).
+## Source and license
 
-## Inspiration and license
+The five-step order comes from [Everyday Astronaut's summary of its 2021 Elon Musk interview](https://everydayastronaut.com/starbase-tour-and-interview-with-elon-musk/). The coaching loop, stage pauses, evidence rules, and agent integration are this project's adaptations.
 
-The sequence comes from [Everyday Astronaut's 2021 summary of its interview with Elon Musk](https://everydayastronaut.com/starbase-tour-and-interview-with-elon-musk/). The coaching loop, stage checkpoints, evidence rules, and agent integration are this project's adaptations.
-
-Independent project; not affiliated with or endorsed by Elon Musk, his companies, or OpenAI. The [MIT license](LICENSE) covers project material to the extent rights exist; it grants no endorsement or rights to third-party names or likenesses.
-
-The portable HUD uses Qt for Python, installed separately from its official package. Its licenses and source are listed in [third-party notices](THIRD_PARTY_NOTICES.md).
+This is an independent project with no affiliation with or endorsement by Elon Musk, his companies, or OpenAI. The [MIT license](LICENSE) applies to project material to the extent that rights exist; it grants no third-party name, likeness, or endorsement rights.

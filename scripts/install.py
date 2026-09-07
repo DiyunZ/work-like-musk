@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Install Work Like Musk and its integrated HUD for local Agent Skills hosts."""
+"""Install the Work Like Musk coaching skill for an Agent Skills host."""
 
 import argparse
+from contextlib import contextmanager
 from datetime import datetime, timezone
 import hashlib
 import json
 import os
 from pathlib import Path
-import platform
 import re
 import shutil
 import subprocess
@@ -17,21 +17,20 @@ import time
 
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "skills/work-like-musk/scripts"))
-from runtime_support import file_lock
-
 START = "<!-- five-step-hud:start -->"
 END = "<!-- five-step-hud:end -->"
-LANGUAGES = ("en", "zh-CN")
-LANGUAGE_CONFIG = "assets/hud-config.json"
-RUNTIME_CONFIG = "assets/runtime-config.json"
-PORTABLE_RUNTIME_CONFIG = "assets/portable-runtime.json"
-QT_PROBE = ("import PySide6\nfrom PySide6.QtWidgets import QApplication\n"
-            "version = tuple(int(part) for part in PySide6.__version__.split('.')[:2])\n"
-            "if not (6, 8) <= version < (7, 0): raise RuntimeError('PySide6 >=6.8,<7 is required')\n")
-LEGACY_DESCRIPTION = ('description: "Use for project coaching with an integrated live progress HUD in local Codex on macOS 14+, '
-                      'or when continuing a project already using Work Like Musk. Keep factual questions and straightforward '
-                      'edits scoped to their immediate purpose."')
+# Upgrade cleanup only: none of these files is installed by this version.
+LEGACY_FILES = (
+    "scripts/five_step.py",
+    "scripts/runtime_support.py",
+    "scripts/portable_hud.py",
+    "references/live-progress.md",
+    "references/live-progress.zh-CN.md",
+    "assets/FiveStepHUD.app",
+    "assets/hud-config.json",
+    "assets/runtime-config.json",
+    "assets/portable-runtime.json",
+)
 AGENT_DIRECTORIES = {
     "codex": ".codex/skills/work-like-musk",
     "claude-code": ".claude/skills/work-like-musk",
@@ -40,63 +39,54 @@ AGENT_DIRECTORIES = {
     "opencode": ".config/opencode/skills/work-like-musk",
     "generic": ".agents/skills/work-like-musk",
 }
-SECTION = f"""{START}
-## Integrated Live Progress HUD
-
-Work Like Musk combines project coaching and a live progress HUD on Windows,
-Linux desktops, and macOS for local agents that can load Agent Skills and run Python.
-On project invocation and turns with an existing session, read
-[the live progress guide](references/live-progress.md). Check the installation,
-initialize/open this task's own session, and report actual stage events with the
-current revision. Resolve paths from this loaded skill, use the installed backend,
-and retain this conversation's actual host ID or the tracking ID returned by setup.
-The portable floating window explicitly names its bound task; native Codex title
-tracking remains available on macOS 14+. The HUD is part of the standard workflow.
-A missing runtime, Qt dependency, graphical desktop, or
-failed setup is an incomplete product setup: explain the concrete issue and
-repair it within existing authorization. Do not silently substitute text-only
-coaching or claim the HUD is ready. Useful independent inspection can continue
-while a required setup condition is unresolved.
-Explain scoped checkpoints and evidence before stage reports. Keep the stage
-record and next move in the final response, even when commentary collapses.
-By default, complete only the current stage and wait for the user's reply before
-the next; continuous execution requires an explicit request. The guide supplies the confirmed-skip and
-reopening protocol; display state does not decide the next project action.
-Coach in the user's conversation language. Use English for new HUD report reasons
-unless requested otherwise; preserve existing report text as recorded.
-{END}"""
-CHINESE_SECTION = f"""{START}
-## 一体化实时进度 HUD
-
-Work Like Musk 将项目指导与实时进度 HUD 整合为同一产品，支持 Windows、Linux 桌面
-和 macOS 上能够加载 Agent Skills 并运行 Python 的本地 agent。调用本 Skill 开展项目或已有进度会话时，阅读
-[实时进度指南](references/live-progress.md)，检查安装，为本任务独立初始化并打开会话。
-从当前加载的 Skill 解析路径，使用已安装的显示方式，保留本对话的真实宿主 ID 或初始化返回的跟踪 ID。
-通用悬浮窗明确显示绑定任务；macOS 14+ 的 Codex 仍可使用原生标题跟随。
-HUD 是标准工作流程的一部分。缺少运行文件、Qt、图形桌面或配置失败意味着产品尚未配置完整：
-说明具体问题，在已有授权内修复，不静默改用纯文字指导，也不宣称 HUD 已就绪。
-配置受阻期间可以继续不依赖它的检查工作。
-报告阶段前先说明对应范围的验收条件和证据；最终回复保留阶段记录及下一步，
-不依赖可能折叠的过程消息。携带当前修订号报告实际阶段变化。
-默认每完成一步都等待用户回应，下一步保持待开始；只有用户明确要求时才跨步骤持续执行。
-指南规定跳步确认和重开的协议，
-显示状态不决定项目下一步该做什么。
-使用用户的对话语言提供指导；除非另有要求，新的 HUD 说明使用简体中文。
-保留已有记录的原文，命令参数和状态标识仍使用固定英文值。
-{END}"""
+LEGACY_DESCRIPTIONS = tuple(
+    'description: "Use for project coaching with an integrated live progress HUD in '
+    + environment
+    + ', or when continuing a project already using Work Like Musk. '
+    'Keep factual questions and straightforward edits scoped to their immediate purpose."'
+    for environment in ("local Codex on macOS 14+", "local AI agents on Windows, Linux, or macOS")
+)
+COACHING_REPLACEMENTS = {
+    "At entry, state what the five indicators track: the user's requested outcome":
+        "At entry, state the user's requested outcome",
+    "Then report the HUD event. The HUD follows these explanations; tool arguments, hover text and silent internal decisions do not supply them.":
+        "Keep these explanations in the conversation.",
+    "do not run ceremonial start/complete reports to fill all five indicators.":
+        "do not report ceremonial completions to fill all five stages.",
+}
+METADATA_REPLACEMENTS = {
+    "Five-step project coaching with an integrated progress HUD":
+        "Five-step project coaching with advice and evidence",
+    "Use $work-like-musk to start the integrated progress HUD and coach":
+        "Use $work-like-musk to coach",
+}
 
 
-def stored_language(skill):
-    config = skill.expanduser() / LANGUAGE_CONFIG
-    if not config.exists():
-        return None
-    try:
-        data = json.loads(config.read_bytes())
-    except (ValueError, UnicodeError) as error:
-        raise ValueError("Invalid HUD language configuration; choose --language en or --language zh-CN to replace it") from error
-    if not isinstance(data, dict) or set(data) != {"language"} or data["language"] not in LANGUAGES:
-        raise ValueError("Unsupported HUD language configuration; choose --language en or --language zh-CN to replace it")
-    return data["language"]
+@contextmanager
+def file_lock(stream):
+    """Hold a nonblocking OS lock throughout an installation transaction."""
+    if os.name == "nt":
+        import errno
+        import msvcrt
+        stream.seek(0)
+        try:
+            msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+        except OSError as error:
+            if error.errno in (errno.EACCES, errno.EAGAIN, errno.EDEADLK):
+                raise BlockingIOError(error.errno, "Installation is already running") from error
+            raise
+        try:
+            yield
+        finally:
+            stream.seek(0)
+            msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+    else:
+        import fcntl
+        fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        try:
+            yield
+        finally:
+            fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
 
 
 def default_skill(agent):
@@ -105,135 +95,33 @@ def default_skill(agent):
     return Path.home() / AGENT_DIRECTORIES[agent]
 
 
-def stored_runtime(skill):
-    config = skill.expanduser() / RUNTIME_CONFIG
-    if not config.exists():
-        return None
-    data = json.loads(config.read_bytes())
-    if (not isinstance(data, dict) or set(data) != {"schemaVersion", "agent", "backend"}
-            or type(data["schemaVersion"]) is not int or data["schemaVersion"] != 1
-            or data["agent"] not in AGENT_DIRECTORIES or data["backend"] not in ("native", "portable")):
-        raise ValueError("Invalid HUD runtime configuration; specify --agent and --hud to replace it")
-    return data
-
-
-def portable_runtime_error(python):
-    try:
-        result = subprocess.run([str(python), "-c", QT_PROBE], capture_output=True, text=True,
-                                encoding="utf-8", errors="replace", timeout=30)
-    except (OSError, subprocess.TimeoutExpired) as error:
-        return str(error)
-    if result.returncode:
-        return (result.stderr or result.stdout or f"Qt probe exited with status {result.returncode}").strip()
-    return None
-
-
-def ensure_portable_runtime():
-    # Resolving a venv's executable symlink would discard its installed packages.
-    current = Path(sys.executable).absolute()
-    if portable_runtime_error(current) is None:
-        return current
-    runtimes = (Path.home() / ".work-like-musk/runtimes").resolve()
-    name = f"pyside6-py{sys.version_info.major}.{sys.version_info.minor}"
-    environment = runtimes / name
-    python = environment / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
-    state_path = runtimes / (name + ".json")
-    lock_path = runtimes / (name + ".lock")
-    runtimes.mkdir(parents=True, exist_ok=True)
-    if (environment.is_symlink() or (environment.exists() and not environment.is_dir())
-            or any(path.is_symlink() or (path.exists() and not path.is_file()) for path in (state_path, lock_path))):
-        raise ValueError(f"Qt runtime needs inspection: {environment}")
-    try:
-        with lock_path.open("a+b") as lock, file_lock(lock, blocking=False):
-            previous = None
-            if state_path.exists():
-                try:
-                    previous = json.loads(state_path.read_text(encoding="utf-8"))
-                except (OSError, ValueError) as error:
-                    raise ValueError(f"Qt runtime record needs inspection: {state_path}") from error
-                if (not isinstance(previous, dict) or set(previous) != {"schemaVersion", "pythonExecutable", "status"}
-                        or type(previous["schemaVersion"]) is not int or previous["schemaVersion"] != 1
-                        or previous["pythonExecutable"] != str(python)
-                        or previous["status"] not in ("provisioning", "ready", "failed")):
-                    raise ValueError(f"Qt runtime record needs inspection: {state_path}")
-                if previous["status"] == "provisioning":
-                    raise ValueError(f"Unfinished Qt runtime setup needs inspection: {state_path}")
-            elif environment.exists():
-                raise ValueError(f"Existing Qt runtime has no ownership record; needs inspection: {environment}")
-            if previous is not None and previous["status"] == "ready" and portable_runtime_error(python) is None:
-                return python
-            state = {"schemaVersion": 1, "pythonExecutable": str(python), "status": "provisioning"}
-            write_json(state_path, state)
-            print(f"Preparing private Qt runtime: {environment}", file=sys.stderr, flush=True)
-            try:
-                commands = []
-                if not python.is_file() or not (environment / "pyvenv.cfg").is_file():
-                    commands.append([str(current), "-m", "venv", str(environment)])
-                commands.append([str(python), "-m", "pip", "--isolated", "install", "--disable-pip-version-check",
-                                 "--no-input", "--index-url", "https://pypi.org/simple", "PySide6-Essentials>=6.8,<7"])
-                for command in commands:
-                    result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8",
-                                            errors="replace", timeout=300)
-                    if result.returncode:
-                        raise ValueError((result.stderr or result.stdout or f"Command exited with status {result.returncode}").strip())
-                error = portable_runtime_error(python)
-                if error is not None:
-                    raise ValueError(error)
-            except (OSError, ValueError, subprocess.SubprocessError) as error:
-                state["status"] = "failed"
-                write_json(state_path, state)
-                raise ValueError(f"Qt runtime setup failed in {environment}: {error}") from error
-            state["status"] = "ready"
-            write_json(state_path, state)
-            return python
-    except BlockingIOError as error:
-        raise ValueError(f"Qt runtime setup is already running; retry after it finishes: {environment}") from error
-
-
-def choose_language(skill, requested):
-    if requested is not None:
-        return requested
-    previous = stored_language(skill)
-    if not sys.stdin.isatty():
-        if previous is not None:
-            return previous
-        raise ValueError("Choose --language zh-CN (中文) or --language en (English) for a non-interactive first install")
-    default = previous or "en"
-    while True:
-        print(f"选择安装语言 / Choose installation language: 1 中文, 2 English [default: {default}]: ",
-              end="", file=sys.stderr, flush=True)
-        try:
-            answer = input().strip().lower()
-        except (EOFError, KeyboardInterrupt) as error:
-            raise ValueError("Installation cancelled / 已取消安装") from error
-        choices = {"": default, "1": "zh-CN", "zh-cn": "zh-CN", "中文": "zh-CN", "2": "en", "en": "en", "english": "en"}
-        if answer in choices:
-            return choices[answer]
-        print("请输入 1 或 2 / Enter 1 or 2.", file=sys.stderr)
-
-
-def managed_entrypoint(content, language="en"):
-    if language not in LANGUAGES:
-        raise ValueError("Language must be en or zh-CN")
-    section = CHINESE_SECTION if language == "zh-CN" else SECTION
-    frontmatter = re.match(r"\A---\r?\n[\s\S]*?^name:\s*[\"']?work-like-musk[\"']?\s*$[\s\S]*?^---\s*$", content, re.M)
+def managed_entrypoint(content):
+    frontmatter = re.match(r"\A---\r?\n[\s\S]*?^name:\s*[\"']?(?:work-like-musk|musk-five-step)[\"']?\s*$[\s\S]*?^---\s*$", content, re.M)
     if not frontmatter:
-        raise ValueError("Target must be an existing work-like-musk SKILL.md")
+        raise ValueError("Target must be a work-like-musk or legacy musk-five-step SKILL.md")
     description = re.search(r"^description:[^\r\n]*", frontmatter.group(), re.M)
-    if description is not None and description.group() == LEGACY_DESCRIPTION:
+    if description is not None and description.group() in LEGACY_DESCRIPTIONS:
         stock = (ROOT / "skills/work-like-musk/SKILL.md").read_text(encoding="utf-8")
         current = re.search(r"^description:[^\r\n]*", stock, re.M).group()
         content = content[:description.start()] + current + content[description.end():]
-    if START not in content and END not in content:
-        return content + ("\n" if content.endswith("\n") else "\n\n") + section + "\n"
-    if content.count(START) != 1 or content.count(END) != 1 or content.index(END) < content.index(START):
-        raise ValueError("Existing HUD managed section is malformed; preserve and inspect it first")
-    begin, end = content.index(START), content.index(END) + len(END)
-    return content[:begin] + section + content[end:]
+    if START in content or END in content:
+        if content.count(START) != 1 or content.count(END) != 1 or content.index(END) < content.index(START):
+            raise ValueError("Existing HUD managed section is malformed; preserve and inspect it first")
+        begin, end = content.index(START), content.index(END) + len(END)
+        if content[end:].startswith("\r\n"):
+            end += 2
+        elif content[end:].startswith("\n"):
+            end += 1
+        content = content[:begin] + content[end:]
+    for old, new in COACHING_REPLACEMENTS.items():
+        content = content.replace(old, new)
+    return content
 
 
 def copy_item(source, target):
-    if sys.platform == "darwin":
+    if source.is_symlink():
+        target.symlink_to(os.readlink(source), target_is_directory=source.is_dir())
+    elif sys.platform == "darwin":
         # Keep macOS resource forks, extended attributes and file modes.
         subprocess.run(["/usr/bin/ditto", str(source), str(target)], check=True, capture_output=True, text=True)
     elif source.is_dir():
@@ -258,8 +146,6 @@ def write_json(path, value):
             stream.write("\n")
             stream.flush()
             os.fsync(stream.fileno())
-        # Windows reports open-reader replacement failures as either access
-        # denied (5) or sharing violation (32). Persistent errors still fail.
         for attempt in range(5):
             try:
                 os.replace(temporary, path)
@@ -272,9 +158,7 @@ def write_json(path, value):
         temporary.unlink(missing_ok=True)
 
 
-def install(skill, app, backup_root, language=None, agent="codex", backend="native"):
-    if agent not in AGENT_DIRECTORIES or backend not in ("native", "portable"):
-        raise ValueError("Choose a supported agent and HUD backend")
+def install(skill, backup_root):
     skill = skill.expanduser()
     if skill.is_symlink() and not skill.exists():
         raise ValueError("The skill directory is a broken link; preserve and inspect it first")
@@ -286,46 +170,41 @@ def install(skill, app, backup_root, language=None, agent="codex", backend="nati
     source_skill = ROOT / "skills/work-like-musk"
     original_bytes = entrypoint.read_bytes() if existed_before else None
     original = (original_bytes if original_bytes is not None else (source_skill / "SKILL.md").read_bytes()).decode("utf-8")
-    config_path = skill / LANGUAGE_CONFIG
-    original_config = config_path.read_bytes() if config_path.exists() else None
-    language = language if language is not None else (stored_language(skill) or "en")
-    new_content = managed_entrypoint(original, language).encode("utf-8")
-    if backend == "native" and (app is None or not (app / "Contents/MacOS/FiveStepHUD").is_file()
-                                or not (app / "Contents/Info.plist").is_file()):
-        raise ValueError("Build FiveStepHUD.app before installation")
-    sources = {"scripts/five_step.py": ROOT / "skills/work-like-musk/scripts/five_step.py",
-               "scripts/runtime_support.py": source_skill / "scripts/runtime_support.py",
-               "scripts/portable_hud.py": source_skill / "scripts/portable_hud.py",
-               "references/live-progress.md": ROOT / "skills/work-like-musk/references" / ("live-progress.zh-CN.md" if language == "zh-CN" else "live-progress.md"),
-               "references/live-progress.zh-CN.md": source_skill / "references/live-progress.zh-CN.md"}
-    if backend == "native":
-        sources["assets/FiveStepHUD.app"] = app.resolve()
-    if not (skill / "agents/openai.yaml").exists():
-        sources["agents/openai.yaml"] = source_skill / "agents/openai.yaml"
-    generated = {
-        "SKILL.md": new_content,
-        LANGUAGE_CONFIG: (json.dumps({"language": language}) + "\n").encode("utf-8"),
-        RUNTIME_CONFIG: (json.dumps({"schemaVersion": 1, "agent": agent, "backend": backend}) + "\n").encode("utf-8"),
-    }
-    portable_path = skill / PORTABLE_RUNTIME_CONFIG
-    original_portable = portable_path.read_bytes() if backend == "portable" and portable_path.exists() else None
-    if backend == "portable":
-        generated[PORTABLE_RUNTIME_CONFIG] = b""  # Filled after ownership and dependency checks.
-    original_runtime = (skill / RUNTIME_CONFIG).read_bytes() if (skill / RUNTIME_CONFIG).exists() else None
-    for source in sources.values():
-        if not source.exists():
-            raise ValueError(f"Missing source: {source}")
+    new_content = managed_entrypoint(original).encode("utf-8")
+    metadata_path = skill / "agents/openai.yaml"
+    if metadata_path.is_symlink() and not metadata_path.exists():
+        raise ValueError("Agent metadata is a broken link; preserve and inspect it first")
+    if metadata_path.exists() and not metadata_path.is_file():
+        raise ValueError("Agent metadata must be a regular file")
+    original_metadata = metadata_path.read_bytes() if metadata_path.exists() else None
+    metadata = original_metadata if original_metadata is not None else (source_skill / "agents/openai.yaml").read_bytes()
+    if original_metadata is None and re.search(r"^name:\s*[\"']?musk-five-step[\"']?\s*$", original, re.M):
+        metadata = metadata.replace(b"$work-like-musk", b"$musk-five-step")
+    for old, new in METADATA_REPLACEMENTS.items():
+        metadata = metadata.replace(old.encode(), new.encode())
+    generated = {"SKILL.md": new_content, "agents/openai.yaml": metadata}
     backup_root = backup_root.expanduser().resolve()
     if backup_root == skill or skill in backup_root.parents:
         raise ValueError("Backups must be outside the skill directory")
-    targets = {relative: (skill / relative).resolve() for relative in [*generated, *sources]}
+    targets = {relative: (skill / relative).resolve() for relative in generated}
+    obsolete = {}
+    for relative in LEGACY_FILES:
+        target = skill / relative
+        # Do not follow a shared support directory to delete someone else's files.
+        if any(parent.is_symlink() for parent in target.parents if parent != skill and skill in parent.parents):
+            raise ValueError(f"Legacy support directory is linked; preserve and inspect it first: {target.parent}")
+        if target.exists() or target.is_symlink():
+            if not (target.is_file() or target.is_dir() or target.is_symlink()):
+                raise ValueError(f"Legacy file needs inspection: {target}")
+            obsolete[relative] = target
+    targets.update(obsolete)
     if len(set(targets.values())) != len(targets):
         raise ValueError("Install targets must be distinct")
     coordination = skill.parent / ".work-like-musk-installations"
     coordination.mkdir(parents=True, exist_ok=True)
     identity = hashlib.sha256(str(skill).encode()).hexdigest()
     transaction_path = coordination / (identity + ".json")
-    with (coordination / (identity + ".lock")).open("a+b") as lock, file_lock(lock, blocking=False):
+    with (coordination / (identity + ".lock")).open("a+b") as lock, file_lock(lock):
         if transaction_path.exists():
             transaction = json.loads(transaction_path.read_text(encoding="utf-8"))
             if (not isinstance(transaction, dict) or transaction.get("skillPath") != str(skill)
@@ -343,43 +222,33 @@ def install(skill, app, backup_root, language=None, agent="codex", backend="nati
             if previous["status"] == "installing":
                 raise ValueError(f"An unfinished installation needs inspection: {manifest_path}")
         legacy_roots = {backup_root, (Path.home() / ".codex/skill-backups/work-like-musk-hud").resolve(),
+                        (Path.home() / ".codex/skill-backups/musk-five-step-hud").resolve(),
                         (Path.home() / ".work-like-musk/skill-backups").resolve()}
         for legacy_root in legacy_roots:
             for manifest_path in legacy_root.glob("*/manifest.json"):
                 previous = json.loads(manifest_path.read_text(encoding="utf-8"))
                 if previous.get("skillPath") == str(skill) and previous.get("status") == "installing":
                     raise ValueError(f"An unfinished installation needs inspection: {manifest_path}")
-        def check_preflight():
-            if (entrypoint.read_bytes() if entrypoint.exists() else None) != original_bytes:
-                raise ValueError("Skill changed during preflight; retry after the other writer finishes")
-            if not existed_before and skill.exists():
-                raise ValueError("The skill directory appeared during preflight; inspect the other writer's work")
-            if (config_path.read_bytes() if config_path.exists() else None) != original_config:
-                raise ValueError("Language configuration changed during preflight; retry after the other writer finishes")
-            runtime_path = skill / RUNTIME_CONFIG
-            if (runtime_path.read_bytes() if runtime_path.exists() else None) != original_runtime:
-                raise ValueError("HUD runtime configuration changed during preflight; retry after the other writer finishes")
-            if backend == "portable" and (portable_path.read_bytes() if portable_path.exists() else None) != original_portable:
-                raise ValueError("Portable runtime configuration changed during preflight; retry after the other writer finishes")
-
-        check_preflight()
-        if backend == "portable":
-            python = ensure_portable_runtime()
-            check_preflight()
-            generated[PORTABLE_RUNTIME_CONFIG] = (json.dumps({"schemaVersion": 1, "pythonExecutable": str(python)}) + "\n").encode("utf-8")
+        if (entrypoint.read_bytes() if entrypoint.exists() else None) != original_bytes:
+            raise ValueError("Skill changed during preflight; retry after the other writer finishes")
+        if not existed_before and skill.exists():
+            raise ValueError("The skill directory appeared during preflight; inspect the other writer's work")
+        if (metadata_path.read_bytes() if metadata_path.exists() else None) != original_metadata:
+            raise ValueError("Agent metadata changed during preflight; retry after the other writer finishes")
         backup_root.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
         backup = Path(tempfile.mkdtemp(prefix=stamp + "-", dir=backup_root))
         manifest_path = backup / "manifest.json"
         manifest = {"skillPath": str(skill), "status": "installing", "targets": {
-            relative: {"resolvedPath": str(target), "existed": target.exists()} for relative, target in targets.items()}}
+            relative: {"resolvedPath": str(target), "existed": target.exists() or target.is_symlink(),
+                       "action": "remove" if relative in obsolete else "replace"}
+            for relative, target in targets.items()}}
         staged = {}
         applied = []
         staging_dirs = []
         created_dirs = set()
         try:
             write_json(manifest_path, manifest)
-            # Register ownership before creating staging directories or changing skill files.
             write_json(transaction_path, {"skillPath": str(skill), "manifestPath": str(manifest_path)})
             for relative, target in targets.items():
                 existed = manifest["targets"][relative]["existed"]
@@ -399,20 +268,15 @@ def install(skill, app, backup_root, language=None, agent="codex", backend="nati
                     if existed:
                         copy_item(target, stage)
                     stage.write_bytes(generated[relative])
-                else:
-                    if existed and target.is_file():
-                        copy_item(target, stage)
-                        stage.write_bytes(sources[relative].read_bytes())
-                    else:
-                        copy_item(sources[relative], stage)
                 staged[relative] = stage
-            # Publish the entrypoint last, after all referenced support files exist.
-            for relative in [*[relative for relative in generated if relative != "SKILL.md"], *sources, "SKILL.md"]:
+            # Publish the new instructions before retiring their old dependencies.
+            for relative in ["agents/openai.yaml", "SKILL.md", *obsolete]:
                 target = targets[relative]
                 applied.append(relative)
-                if target.is_dir():
-                    os.replace(target, staged[relative].parent / "previous")
-                os.replace(staged[relative], target)
+                if relative in obsolete:
+                    os.replace(target, staged[relative])
+                else:
+                    os.replace(staged[relative], target)
             manifest["status"] = "installed"
         except Exception:
             for relative in reversed(applied):
@@ -434,63 +298,29 @@ def install(skill, app, backup_root, language=None, agent="codex", backend="nati
                         directory.rmdir()
                     except OSError:
                         pass  # Preserve anything another writer placed here.
-    app_path = str(targets["assets/FiveStepHUD.app"]) if backend == "native" else None
-    return {"skillPath": str(skill), "backupPath": str(backup), "appPath": app_path,
-            "hudPath": app_path or str(targets["scripts/portable_hud.py"]),
-            "language": language, "agent": agent, "backend": backend}
+        # Remove only empty former runtime folders; keep custom files and session data.
+        for relative in ("scripts", "references", "assets"):
+            try:
+                (skill / relative).rmdir()
+            except OSError:
+                pass
+    return {"skillPath": str(skill), "backupPath": str(backup), "removedFiles": list(obsolete)}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--agent", choices=tuple(AGENT_DIRECTORIES), help="Agent to install for (default: codex, or the saved agent for --skill)")
+    parser.add_argument("--agent", choices=tuple(AGENT_DIRECTORIES), default="codex", help="Agent to install for (default: codex)")
     parser.add_argument("--skill", type=Path, help="Exact skill directory; otherwise use the selected agent's personal location")
-    parser.add_argument("--hud", choices=("auto", "native", "portable"), default="auto", help="HUD display: native for macOS/Codex, portable elsewhere; preserves an existing choice")
-    parser.add_argument("--app", type=Path, help="Use an already built HUD; otherwise build the bundled native source")
-    parser.add_argument("--backup-root", type=Path, help="Backup directory; defaults to the existing Codex backup location or ~/.work-like-musk/skill-backups")
-    parser.add_argument("--language", choices=LANGUAGES, help="Interface and guidance language: en / zh-CN; prompts in a terminal, preserves an existing choice otherwise")
+    parser.add_argument("--backup-root", type=Path, help="Backup directory (default: ~/.work-like-musk/skill-backups)")
     args = parser.parse_args()
     try:
-        if sys.platform not in ("darwin", "win32", "linux"):
-            raise ValueError("Work Like Musk supports Windows, Linux desktops, and macOS")
-        agent = args.agent or "codex"
-        skill = args.skill or default_skill(agent)
-        try:
-            saved = stored_runtime(skill)
-        except ValueError:
-            if args.agent is None or args.hud == "auto":
-                raise
-            saved = None
-        if args.agent is None and saved is not None:
-            agent = saved["agent"]
-        native_supported = sys.platform == "darwin" and int(platform.mac_ver()[0].split(".")[0]) >= 14
-        backend = args.hud
-        if backend == "auto":
-            if args.app is not None:
-                backend = "native"
-            elif saved is not None and saved["agent"] == agent:
-                backend = saved["backend"]
-            else:
-                backend = "native" if native_supported and agent == "codex" else "portable"
-        if backend == "native" and (not native_supported or agent != "codex"):
-            raise ValueError("Native title tracking requires Codex on macOS 14+; use --hud portable for this environment")
-        if backend == "portable" and args.app is not None:
-            raise ValueError("--app selects a native app and cannot be combined with --hud portable")
-        language = choose_language(skill, args.language)
-        backup_root = args.backup_root or Path.home() / (
-            ".codex/skill-backups/work-like-musk-hud" if agent == "codex" else ".work-like-musk/skill-backups")
-        app = args.app
-        if backend == "native" and app is None:
-            result = subprocess.run([sys.executable, str(ROOT / "scripts/build.py")], capture_output=True, text=True)
-            if result.stdout:
-                print(result.stdout.rstrip(), file=sys.stderr)
-            if result.stderr:
-                print(result.stderr.rstrip(), file=sys.stderr)
-            result.check_returncode()
-            app = ROOT / "dist/FiveStepHUD.app"
-        print(json.dumps(install(skill, app, backup_root, language=language, agent=agent, backend=backend)))
+        skill = args.skill or default_skill(args.agent)
+        backup_root = args.backup_root or Path.home() / ".work-like-musk/skill-backups"
+        result = install(skill, backup_root)
+        print(json.dumps({**result, "agent": args.agent}))
         return 0
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
-        print(f"five-step install: {error}", file=sys.stderr)
+        print(f"work-like-musk install: {error}", file=sys.stderr)
         return 2
 
 

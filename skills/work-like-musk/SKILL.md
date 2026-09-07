@@ -1,6 +1,6 @@
 ---
 name: work-like-musk
-description: "Use for project coaching with an integrated live progress HUD in local AI agents on Windows, Linux, or macOS, or when continuing a project already using Work Like Musk. Keep factual questions and straightforward edits scoped to their immediate purpose."
+description: "Use for five-step project coaching while planning, building, fixing, or improving a project, or when continuing a project already using Work Like Musk. Keep factual questions and straightforward edits scoped to their immediate purpose."
 ---
 
 # Work Like Musk
@@ -24,9 +24,9 @@ Coaching should persist across relevant turns. Carry forward the goal, current h
 
 ## Make the Coaching and Progress Visible
 
-At entry, state what the five indicators track: the user's requested outcome and the current work scope, such as a design review or a working implementation. Name the current step and its observable completion condition before doing its work. Reuse an established scope; when it changes, explain the change and reassess affected checkpoints. A small deliverable inside a larger project does not redefine the whole project's progress.
+At entry, state the user's requested outcome and the current work scope, such as a design review or a working implementation. Name the current step and its observable completion condition before doing its work. Reuse an established scope; when it changes, explain the change and reassess affected checkpoints. A small deliverable inside a larger project does not redefine the whole project's progress.
 
-At each stage transition, give a short, explicit coaching statement in the user's language: **step number and name → concrete recommendation and why → action and success signal**. Before reporting completion, explain which result met the stated condition and which limits remain. Then report the HUD event. The HUD follows these explanations; tool arguments, hover text and silent internal decisions do not supply them.
+At each stage transition, give a short, explicit coaching statement in the user's language: **step number and name → concrete recommendation and why → action and success signal**. Before reporting completion, explain which result met the stated condition and which limits remain. Keep these explanations in the conversation.
 
 **Every final response for active project coaching must stand on its own**, because process commentary can collapse. Include these compact elements alongside the requested result:
 
@@ -43,7 +43,7 @@ A stage is complete when its pre-stated condition is supported by an observed re
 
 For design-only requests, a design checkpoint may finish after a concrete scenario review supports it; label it as design-level completion and preserve unresolved execution assumptions. A claim that an untested replacement makes an existing part unnecessary remains tentative. Retain or reopen the relevant stage if a necessary assumption is unresolved. Absence of measurements is missing evidence, not proof that no improvement is worthwhile.
 
-A justified no-change result needs a substantive assessment against the checkpoint. Leave stages outside the authorized deliverable pending and explain that scope limit; do not run ceremonial start/complete reports to fill all five indicators. During continuation, inspect inherited checkmarks against their evidence and scope; reopen the earliest unsupported checkpoint without discarding useful artifacts.
+A justified no-change result needs a substantive assessment against the checkpoint. Leave stages outside the authorized deliverable pending and explain that scope limit; do not report ceremonial completions to fill all five stages. During continuation, inspect inherited checkmarks against their evidence and scope; reopen the earliest unsupported checkpoint without discarding useful artifacts.
 
 ## Five Lenses for the Next Decision
 
@@ -80,29 +80,3 @@ You planned a plugin framework for a single required exporter. A useful interven
 ## Source
 
 The sequence follows [Everyday Astronaut's 2021 summary of its interview with Elon Musk](https://everydayastronaut.com/starbase-tour-and-interview-with-elon-musk/). Read it when checking the original formulation. The coaching loop, verification, authorization, and collaboration rules are adaptations for this skill.
-
-<!-- five-step-hud:start -->
-## Integrated Live Progress HUD
-
-Work Like Musk combines project coaching and a live progress HUD on Windows,
-Linux desktops, and macOS for local agents that can load Agent Skills and run Python.
-On project invocation and turns with an existing session, read
-[the live progress guide](references/live-progress.md). Check the installation,
-initialize/open this task's own session, and report actual stage events with the
-current revision. Resolve paths from this loaded skill, use the installed backend,
-and retain this conversation's actual host ID or the tracking ID returned by setup.
-The portable floating window explicitly names its bound task; native Codex title
-tracking remains available on macOS 14+. The HUD is part of the standard workflow.
-A missing runtime, Qt dependency, graphical desktop, or
-failed setup is an incomplete product setup: explain the concrete issue and
-repair it within existing authorization. Do not silently substitute text-only
-coaching or claim the HUD is ready. Useful independent inspection can continue
-while a required setup condition is unresolved.
-Explain scoped checkpoints and evidence before stage reports. Keep the stage
-record and next move in the final response, even when commentary collapses.
-By default, complete only the current stage and wait for the user's reply before
-the next; continuous execution requires an explicit request. The guide supplies the confirmed-skip and
-reopening protocol; display state does not decide the next project action.
-Coach in the user's conversation language. Use English for new HUD report reasons
-unless requested otherwise; preserve existing report text as recorded.
-<!-- five-step-hud:end -->
