@@ -11,6 +11,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import sys
 import tempfile
 import time
@@ -81,13 +82,27 @@ def startup_diagnostics(ready_path, task):
     """Make even a native Qt plugin abort observable before the process exits."""
     check_qt()
     recent = deque(maxlen=8)
+    requested = {name.split(':', 1)[0].lower() for name in
+                 (os.environ.get('QT_QPA_PLATFORM') or 'windows').split(';') if name}
+    failed = set()
     def message_handler(kind, context, message):
         recent.append(message[:1024])
-        if kind == QtCore.QtMsgType.QtFatalMsg:
+        exhausted = False
+        if sys.platform == 'win32' and context.category == 'qt.qpa.plugin':
+            match = re.search(r'Could not (?:find|load) the Qt platform plugin "([^"]+)"', message)
+            if match:
+                failed.add(match.group(1).lower())
+                exhausted = bool(requested) and requested <= failed
+        if kind == QtCore.QtMsgType.QtFatalMsg or exhausted:
             try:
                 respond(ready_path, task, 'error', 'Qt platform startup failed: '+'\n'.join(recent)[-6144:])
             except (OSError, ValueError):
                 pass
+            if exhausted:
+                # Detached Windows Qt shows a blocking dialog before qFatal.
+                # All candidates failed: finish this child after its durable
+                # error response; the OS releases its process-owned file locks.
+                os._exit(2)
         print(message, file=sys.stderr)
     previous = QtCore.qInstallMessageHandler(message_handler)
     try:
@@ -486,6 +501,13 @@ class FloatingHUD(_Widget):
                 self.hovered_stage = index
                 self.show_details(index)
                 self.update()
+            elif QtWidgets.QApplication.platformName().startswith('wayland'):
+                # Wayland assigns top-level positions through the compositor.
+                # Start its move gesture while the original press is active.
+                handle = self.windowHandle()
+                if handle is not None and handle.startSystemMove():
+                    self.drag_origin = None
+                    self.hide_details()
 
     def mouseReleaseEvent(self, event):
         self.drag_origin = None

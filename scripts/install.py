@@ -258,13 +258,14 @@ def write_json(path, value):
             stream.write("\n")
             stream.flush()
             os.fsync(stream.fileno())
-        # A concurrent Windows manifest reader can briefly deny replacement.
+        # Windows reports open-reader replacement failures as either access
+        # denied (5) or sharing violation (32). Persistent errors still fail.
         for attempt in range(5):
             try:
                 os.replace(temporary, path)
                 break
             except OSError as error:
-                if sys.platform != "win32" or getattr(error, "winerror", None) != 32 or attempt == 4:
+                if sys.platform != "win32" or getattr(error, "winerror", None) not in (5, 32) or attempt == 4:
                     raise
                 time.sleep(0.05)
     finally:

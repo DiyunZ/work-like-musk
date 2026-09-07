@@ -757,7 +757,7 @@ class PortableInstallTests(unittest.TestCase):
         real_replace = os.replace
         attempts = []
         sharing_error = PermissionError(13, "Fixture sharing violation")
-        sharing_error.winerror = 32
+        sharing_error.winerror = 5
 
         def replace_after_two_readers(source, target):
             attempts.append(target)
@@ -794,7 +794,7 @@ class PortableInstallTests(unittest.TestCase):
         manifest = self.base / "manifest.json"
         original = b'{"status":"installing"}'
         manifest.write_bytes(original)
-        for host, code in [("win32", 5), ("win32", None), ("darwin", 32), ("linux", 32)]:
+        for host, code in [("win32", 87), ("win32", None), ("darwin", 5), ("linux", 32)]:
             with self.subTest(host=host, winerror=code):
                 error = OSError(13, "Fixture replacement failure")
                 if code is not None:
@@ -825,7 +825,7 @@ class PortableInstallTests(unittest.TestCase):
             try:
                 return real_replace(source, target)
             except OSError as error:
-                if getattr(error, "winerror", None) == 32:
+                if getattr(error, "winerror", None) in (5, 32):
                     sharing_errors.append(error.winerror)
                     reader.stdin.write("\n")
                     reader.stdin.flush()
@@ -836,7 +836,8 @@ class PortableInstallTests(unittest.TestCase):
             self.assertEqual(reader.stdout.readline().strip(), "ready")
             with mock.patch.object(installer.os, "replace", side_effect=release_reader_after_real_sharing_violation):
                 installer.write_json(manifest, {"status": "installed"})
-            self.assertEqual(sharing_errors, [32])
+            self.assertEqual(len(sharing_errors), 1)
+            self.assertIn(sharing_errors[0], (5, 32))
             self.assertEqual(json.loads(manifest.read_text(encoding="utf-8")), {"status": "installed"})
         finally:
             if reader.poll() is None:

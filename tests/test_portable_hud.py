@@ -96,6 +96,24 @@ class PortableHUDTests(unittest.TestCase):
         self.assertTrue(self.has_color(image, '#196E42', QtCore.QRectF(218, 12, 14, 14)), 'Completed question symbol must remain green')
         self.assertTrue(self.has_color(image, '#196E42', QtCore.QRectF(231, 25, 8, 8)), 'Small green check must accompany the symbol')
 
+    def test_wayland_drag_uses_compositor_and_preserves_stage_clicks(self):
+        window = self.window()
+        for started in (True, False):
+            with self.subTest(system_move_started=started), \
+                    patch.object(QtWidgets.QApplication, 'platformName', return_value='wayland'), \
+                    patch.object(window, 'windowHandle') as handle:
+                handle.return_value.startSystemMove.return_value = started
+                QtTest.QTest.mousePress(window, QtCore.Qt.MouseButton.LeftButton, pos=QtCore.QPoint(30, 19))
+                handle.return_value.startSystemMove.assert_called_once_with()
+                self.assertEqual(window.drag_origin is None, started)
+                QtTest.QTest.mouseRelease(window, QtCore.Qt.MouseButton.LeftButton, pos=QtCore.QPoint(30, 19))
+        with patch.object(QtWidgets.QApplication, 'platformName', return_value='wayland'), \
+                patch.object(window, 'windowHandle') as handle:
+            QtTest.QTest.mouseClick(window, QtCore.Qt.MouseButton.LeftButton, pos=QtCore.QPoint(225, 19))
+            handle.return_value.startSystemMove.assert_not_called()
+            self.assertIsNotNone(window.details)
+            self.assertIn('Question', self.tooltip_text(window))
+
     def test_corrupt_and_missing_clear_actual_rendered_progress(self):
         state = five_step.transition(self.state, 'question', 'in_progress', 'Checking')
         five_step.atomic_write(self.path, state)
@@ -444,6 +462,29 @@ sys.exit(portable_hud.main(sys.argv[5:]))
         self.assertIn('an-invalid-plugin', response['error'])
         self.assertNotEqual(child.wait(timeout=5), 0)
         self.assertEqual(five_step.load(self.path,self.project,'task-one'), self.state)
+
+    def test_windows_plugin_failure_exits_before_modal_dialog_and_keeps_fallback(self):
+        # Exercise the Windows warning branch on every host; real Windows CI
+        # additionally covers its native no-console behavior above.
+        code = ('import sys; sys.path.insert(0,sys.argv[1]); import portable_hud; '
+                'portable_hud.sys.platform="win32"; sys.exit(portable_hud.main(sys.argv[2:]))')
+        for fallback in (False, True):
+            ready = self.project / ('windows-fallback.json' if fallback else 'windows-failure.json')
+            platforms = 'an-invalid-plugin'
+            if fallback:
+                platforms += ';' + QtWidgets.QApplication.platformName()
+            child = subprocess.Popen([sys.executable,'-c',code,str(SCRIPTS),'--project',str(self.project),
+                                      '--task','task-one','--state',str(self.path),'--ready-file',str(ready)],
+                                     stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+                                     env=dict(os.environ,QT_QPA_PLATFORM=platforms))
+            self.addCleanup(self.stop,child)
+            self.wait_for_file(ready,child)
+            response = json.loads(ready.read_text(encoding='utf-8'))
+            self.assertEqual(response['taskId'], 'task-one')
+            self.assertEqual(response['status'], 'opened' if fallback else 'error')
+            if not fallback:
+                self.assertEqual(child.wait(timeout=5), 2)
+                self.assertIn('an-invalid-plugin', response['error'])
 
     def test_invisible_platform_fails_startup_but_check_is_dependency_only(self):
         env = dict(os.environ,QT_QPA_PLATFORM='offscreen')
