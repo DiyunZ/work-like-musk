@@ -98,11 +98,9 @@ def startup_diagnostics(ready_path, task):
                 respond(ready_path, task, 'error', 'Qt platform startup failed: '+'\n'.join(recent)[-6144:])
             except (OSError, ValueError):
                 pass
-            if exhausted:
-                # Detached Windows Qt shows a blocking dialog before qFatal.
-                # All candidates failed: finish this child after its durable
-                # error response; the OS releases its process-owned file locks.
-                os._exit(2)
+            # End handled startup failures before Qt aborts or opens a modal
+            # dialog. The OS releases this child's process-owned file locks.
+            os._exit(2)
         print(message, file=sys.stderr)
     previous = QtCore.qInstallMessageHandler(message_handler)
     try:

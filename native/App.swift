@@ -28,7 +28,6 @@ private final class HUDController: NSObject {
     private var calibratedOffset: NSPoint?
     // Preview mode exercises our own interface without inspecting another app.
     private let previewMode = CommandLine.arguments.contains("--preview")
-    private var trackingEnabled = false
     private var stripLayout: HUDLayout { HUDLayout(allowDragging: preferences.allowDragging) }
 
     override init() {
@@ -130,7 +129,6 @@ private final class HUDController: NSObject {
             controls.placementMessage = "Preview mode: tracking other apps is disabled."
             return
         }
-        trackingEnabled = true
         UserDefaults.standard.set(true, forKey: "HUD.titleTrackingEnabled")
         TitleAnchor.requestPermission()
         controls.placementMessage = TitleAnchor.hasPermission
@@ -231,7 +229,7 @@ private final class HUDController: NSObject {
                 guard let visible = bestScreen(for: frame)?.visibleFrame else { hideFloatingBar(); return }
                 let target: CGRect?
                 if preferences.placement == .titleBar && !(preferences.allowDragging && calibratedOffset != nil) {
-                    guard trackingEnabled || UserDefaults.standard.bool(forKey: "HUD.titleTrackingEnabled") else {
+                    guard UserDefaults.standard.bool(forKey: "HUD.titleTrackingEnabled") else {
                         titleTrackingUnavailable("Choose Enable Title Tracking to attach beside the task title.")
                         return
                     }
