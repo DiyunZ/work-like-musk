@@ -1,6 +1,6 @@
 ---
 name: work-like-musk
-description: "Use for project coaching with an integrated live progress HUD in local Codex on macOS 14+, or when continuing a project already using Work Like Musk. Keep factual questions and straightforward edits scoped to their immediate purpose."
+description: "Use for project coaching with an integrated live progress HUD in local AI agents on Windows, Linux, or macOS, or when continuing a project already using Work Like Musk. Keep factual questions and straightforward edits scoped to their immediate purpose."
 ---
 
 # Work Like Musk
@@ -84,15 +84,20 @@ The sequence follows [Everyday Astronaut's 2021 summary of its interview with El
 <!-- five-step-hud:start -->
 ## Integrated Live Progress HUD
 
-Work Like Musk combines project coaching and a live progress HUD for local Codex
-on macOS 14+. On project invocation and turns with an existing session, read
+Work Like Musk combines project coaching and a live progress HUD on Windows,
+Linux desktops, and macOS for local agents that can load Agent Skills and run Python.
+On project invocation and turns with an existing session, read
 [the live progress guide](references/live-progress.md). Check the installation,
 initialize/open this task's own session, and report actual stage events with the
-current revision. The HUD is part of the standard workflow. A missing app or
+current revision. Resolve paths from this loaded skill, use the installed backend,
+and retain this conversation's actual host ID or the tracking ID returned by setup.
+The portable floating window explicitly names its bound task; native Codex title
+tracking remains available on macOS 14+. The HUD is part of the standard workflow.
+A missing runtime, Qt dependency, graphical desktop, or
 failed setup is an incomplete product setup: explain the concrete issue and
 repair it within existing authorization. Do not silently substitute text-only
-coaching or claim the HUD is ready. Unsupported hosts require the supported
-environment; useful independent inspection can continue while setup is blocked.
+coaching or claim the HUD is ready. Useful independent inspection can continue
+while a required setup condition is unresolved.
 Explain scoped checkpoints and evidence before stage reports. Keep the stage
 record and next move in the final response, even when commentary collapses.
 By default, complete only the current stage and wait for the user's reply before

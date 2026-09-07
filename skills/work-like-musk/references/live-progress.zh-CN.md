@@ -1,7 +1,7 @@
 # 一体化实时进度 HUD
 
 Work Like Musk 将 `SKILL.md` 中的项目指导与实时进度 HUD 整合为同一产品，
-支持 macOS 14+ 上的 Codex 本地任务。助手根据项目证据提供建议、决定下一动作，
+支持 Windows、Linux 桌面和 macOS 上的本地 AI agent。助手根据项目证据提供建议、决定下一动作，
 显示层反映已报告的实际工作。每个已启用的项目会话都包含 HUD：调用 Skill 开展项目时，
 为本任务独立初始化并打开会话；后续轮次沿用。仅提到方法或内部审查不代表其他任务自动启用。
 
@@ -12,27 +12,39 @@ HUD 报告不能替代项目验证或用户要求的交付物。
 
 ## 安装就绪检查
 
-开始跟踪项目阶段前，检查宿主和 Skill 目录。完整安装应在同一目录中包含 `SKILL.md`、
-`scripts/five_step.py` 和 `assets/FiveStepHUD.app/Contents/MacOS/FiveStepHUD`。
-支持的环境为 macOS 14+ 上的 Codex 本地任务。不受支持的环境需要明确说明，
-不把纯文字指导称为完整产品，也不尝试在那里运行 macOS 应用。
+从当前加载的 `SKILL.md` 解析目录，不假定安装在 Codex 目录。宿主需要能加载本地
+Agent Skills 并执行命令。通用悬浮 HUD 需要 Python 3.9+ 和图形桌面，安装器自动准备 Qt 运行环境。
+Linux 需要启用桌面合成以显示透明背景。
+原生标题跟随面向 macOS 14+ 的 Codex 桌面，编译需要 Swift 工具。
+Codex CLI、Windows、Linux 和其他 agent 使用通用悬浮窗。
 
-如果缺少应用或辅助脚本，说明配置尚未完整，并在已有授权内修复。使用已核实的
-[本仓库](https://github.com/DiyunZ/work-like-musk) 副本；没有副本时，在授权范围内获取仓库，
-然后运行统一安装器：
+完整安装包含 `scripts/five_step.py`、`scripts/runtime_support.py`、
+`scripts/portable_hud.py`、`assets/runtime-config.json` 和 `assets/hud-config.json`。
+读取配置确定显示方式和语言。原生模式还需要
+`assets/FiveStepHUD.app/Contents/MacOS/FiveStepHUD`。没有运行配置的旧原生安装
+可以通过统一安装器修复。
+
+缺少文件或依赖时，说明具体问题，在已有授权内使用已核实的
+[本仓库](https://github.com/DiyunZ/work-like-musk) 副本修复：
 
 ```sh
-python3 scripts/install.py --skill "/absolute/path/to/the/installed/skill" --language zh-CN
+python3 scripts/install.py --agent claude-code --hud portable --skill "<skill-dir>" --language zh-CN
 ```
 
-将示例路径替换为当前 `SKILL.md` 所在的实际目录。安装器自动编译 HUD 并安装完整产品，
-既支持首次安装，也能补齐旧版仅有指令的安装。只有 Markdown 文件存在不代表安装完整。
-构建或安装失败时说明具体原因，不静默改用正常的纯文字模式。配置条件受阻期间，可以
-继续不依赖它的检查工作。
+把 `claude-code` 换成实际宿主：`codex`、`claude-code`、`cursor`、`gemini-cli`、
+`opencode` 或 `generic`，把 `<skill-dir>` 换成实际加载的 Skill 目录。
+Windows 使用 `python`，不要把 Unix 环境变量或反斜杠续行直接复制进 PowerShell。
+macOS 14+ 的 Codex 桌面可省略 `--hud portable` 以选择原生方式。
+项目级安装或自定义宿主目录使用 `--skill`。
 
-安装后运行下文的 `setup`，登记并打开当前任务。首次标题跟随需要用户在 HUD 设置中
-启用跟随，并授予该应用 macOS 辅助功能权限。遵循宿主权限边界，不自动代为授权。
-文件安装完成、应用已打开、HUD 已实际附着在标题旁是不同的观察结果，只报告已验证的状态。
+通用方式还包含 `assets/portable-runtime.json`，CLI 自动使用其中已验证的 Python 启动 GUI，
+与 agent 自带的 Python 分开。
+
+安装器安装完整产品并保留自定义指导内容。缺少 Qt、没有图形/合成桌面或启动失败，都意味着
+配置尚未完整。保留 HUD 要求，说明实际错误；期间继续不依赖它的工作。
+文件已安装与窗口已打开是不同检查，安装后运行下文的 `setup` 验证启动。
+通用窗口映射成功才确认打开；原生模式只确认发出启动请求，不能据此声称已附着到标题。
+首次原生跟随需要用户在 HUD 设置中启用并授予 macOS 辅助功能权限，不自动代为授权。
 
 ## 教练节奏与阶段事件
 
@@ -65,35 +77,47 @@ Question 阶段的正常提问或按用户要求进行的教学等待本身不�
 
 ## 配置和重新打开
 
-根据实际使用的 SKILL.md 确定 skill 目录，使用 Python 3.9 或更新版本运行其中的
-`scripts/five_step.py`。以下示例使用默认个人安装路径；安装在其他位置时替换为实际路径。
+根据当前加载的 Skill 确定 `<skill-dir>`，根据本任务确定 `<project-dir>`。
+以下命令中的尖括号内容都应替换为观察到的实际值。Windows 使用 `python`，
+Unix 使用 `python3`；这些命令使用 Python 3.9+，已安装的 GUI 运行环境会自动选择。
+
+宿主提供本对话的真实任务或会话 ID 时，明确传入：
 
 ```sh
-python3 "$HOME/.codex/skills/work-like-musk/scripts/five_step.py" setup \
-  --project "$PWD" --title "改进当前项目流程"
+python3 "<skill-dir>/scripts/five_step.py" setup --project "<project-dir>" --task "<this-task-id>" --title "改进当前项目流程"
 ```
 
-`setup` 创建当前任务会话，或保留并打开已有会话，不会重置进度。
-`--no-open` 用于隔离测试或状态维护，不代表正常产品启动完成。任务标识默认仅取自 `CODEX_THREAD_ID`；
-不可用时，取得真实任务标识并通过 `--task` 传入，不要猜测、使用共享占位值或借用其他任务。
-
-每轮相关对话开始时及报告进度前，先查看当前任务：
+Codex 提供当前任务的真实 `CODEX_THREAD_ID` 时可以省略 `--task`，其他 agent
+不应假定存在这个变量。没有可用宿主 ID 时，使用通用窗口创建一次本地跟踪 ID：
 
 ```sh
-python3 "$HOME/.codex/skills/work-like-musk/scripts/five_step.py" show --project "$PWD"
+python3 "<skill-dir>/scripts/five_step.py" setup --project "<project-dir>" --new-task --hud portable --title "改进当前项目流程"
 ```
 
-如果尚无会话且用户已明确调用 Skill 或要求配置 HUD，就运行 `setup`；否则保持未启用。
-新会话的五个阶段均为待办，Question 最先就绪。真正开展需求工作，包括提出第一个
-相关问题时，才将 Question 标为 `in_progress`。不要复制别的对话进度，也不要因为项目
-已有资料而推定阶段完成或补造历史。
+在本对话的工作上下文保留返回的 `taskId`，后续命令和轮次都使用 `--task` 传入。
+它是本地跟踪 ID，不是查到的宿主会话 ID。不要每轮都创建新 ID，不使用共享占位值，
+不读取别的对话，也不根据“最近修改的状态文件”选择任务。
+创建状态后启动失败时，从结构化错误输出保留 `taskId`，修复原因后用 `--task` 重试。
+身份丢失时，从本对话自己的初始化结果恢复；确实找不到时，新建并说明新会话，不猜测。
 
-会话按规范化项目路径和任务标识隔离。打开会话只登记它，不让后台任务接管前台进度条。
-辅助应用将当前窗口的任务标题与本地任务索引核对，解析唯一任务标识，再显示其已登记
-会话。切换到未启用的对话、同名或无法识别的标题、不可读会话时，下一次刷新立即隐藏。
-不猜测同名任务的归属，不修改任务名称；多个已登记会话重启后仍然保留。
-旧项目会话确实已被移除时，其失效路径不会再阻挡同一任务剩余的已登记会话。
-如果两个路径的文件都还存在，仍按归属不明处理。
+`setup` 创建或重新打开当前任务，不重置已有进度。`--no-open` 仅用于隔离测试或
+状态维护，不代表正常启动完成。原生标题跟随需要真实 Codex 任务 ID；
+生成的本地 ID 使用通用悬浮窗。
+
+每轮相关对话开始和报告进度前，读取本任务：
+
+```sh
+python3 "<skill-dir>/scripts/five_step.py" show --project "<project-dir>" --task "<this-task-id>"
+```
+
+用户已启用 Skill 而会话不存在时运行 setup，否则保持未启用。新会话所有阶段待开始。
+真正开展需求工作，包括第一个相关问题时，才将 Question 标为进行中。
+不要因为项目已有资料推定完成，也不要补造历史。
+
+通用窗口显示绑定任务的标题、项目名和缩短的任务 ID。切换前台应用或对话时，它仍然
+绑定原任务；不同任务有独立窗口，同一任务再次打开不会重复创建窗口。
+它不检查宿主界面、聊天或任务索引。原生方式则核验前台 Codex 标题与本地索引，
+归属不确定时隐藏进度。两种方式都不会借用其他任务的状态。
 
 ## 报告实际阶段事件
 
@@ -105,10 +129,7 @@ python3 "$HOME/.codex/skills/work-like-musk/scripts/five_step.py" show --project
 仅写“草案完成”不足以支持一个实际执行层面的检查点。
 
 ```sh
-python3 "$HOME/.codex/skills/work-like-musk/scripts/five_step.py" update \
-  --project "$PWD" --stage question --status in_progress \
-  --expected-revision 1 \
-  --reason "正在核对交付要求和项目现有约束"
+python3 "<skill-dir>/scripts/five_step.py" update --project "<project-dir>" --task "<this-task-id>" --stage question --status in_progress --expected-revision 1 --reason "正在核对交付要求和项目现有约束"
 ```
 
 将示例中的 `1` 换成刚刚 `show` 返回的修订号，不能写死。如果修订号已改变，重新读取
@@ -147,7 +168,21 @@ HUD 根据明确报告渲染进度，不会自行解析对话语义。
 直接 `update --status skipped` 会被拒绝。确认记录与修订号保证状态转换的约束，
 助手仍须如实理解和报告用户意图，不能虚构用户确认。
 
-## 窗口和持久化
+## 通用悬浮窗口
+
+悬浮窗口沿用 macOS 的紧凑进度条设计，同时显示任务标题、项目和任务 ID。
+完成后仍保留各步骤图标，小标记显示完成、等待或受阻。拖动可移动，菜单可切换置顶和减少动态效果；
+关闭按钮或 Escape 只关闭本窗口，进度仍保留。悬停步骤显示状态、报告说明和时间。
+旋转环表示进行中，红色呼吸圆点表示下一阶段等待指令，勾表示已报告完成，琥珀色表示受阻。
+悬停、点击或时间经过都不会推进。状态无效或不可读时清除进度并显示错误，不保留旧勾选。
+
+使用保留的身份重新打开：
+
+```sh
+python3 "<skill-dir>/scripts/five_step.py" open --project "<project-dir>" --task "<this-task-id>"
+```
+
+## 原生 Codex 窗口（macOS 14+）
 
 独立的 macOS 辅助应用默认显示为透明且锁定的图标条，位于任务标题三点按钮右侧。
 在设置中点击“启用标题跟随”，并为 Five Step HUD 开启 macOS 辅助功能权限。
@@ -174,12 +209,15 @@ HUD 根据明确报告渲染进度，不会自行解析对话语义。
 保留外观和强调色。关闭界面后可重新打开：
 
 ```sh
-python3 "$HOME/.codex/skills/work-like-musk/scripts/five_step.py" open --project "$PWD"
+python3 "<skill-dir>/scripts/five_step.py" open --project "<project-dir>" --task "<this-task-id>"
 ```
+
+## 共享持久化
 
 会话位于 `<project>/.work-like-musk/sessions/<sha256(task ID)>.json`，重启后保留。
 跳步提醒保存在同目录的 `.skip.json` 文件中，与任务和当时修订号绑定。
-不要提交这些任务运行状态，遵守项目已有忽略规则。读取失败时隐藏进度条，避免显示旧进度。
+不要提交这些任务运行状态，遵守项目已有忽略规则。读取失败时，原生方式隐藏进度条，
+通用窗口清除进度并显示错误；两者都不保留旧勾选。
 CLI 会拒绝链接到其他位置的运行状态目录，以及非普通文件的状态、跳步请求或锁文件，
 并保留原物。应先查明其来源，不要通过直接写状态绕过错误。
 只有用户点击“启用标题跟随”才请求辅助功能权限，不安装后台登录项。

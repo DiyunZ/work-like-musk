@@ -1,7 +1,7 @@
 # Integrated Live Progress HUD
 
 Work Like Musk combines the coaching workflow in `SKILL.md` and its live progress
-HUD in one product for local Codex on macOS 14+. The assistant's judgment and
+HUD in one product for local AI agents on Windows, Linux desktops, and macOS. The assistant's judgment and
 advice determine the next action; the HUD reflects reported work. Every activated
 project session includes the HUD. Initialize/open a separate session on project
 invocation and use that session on later turns. Mere mention or an internal
@@ -14,35 +14,45 @@ HUD reports do not replace project verification or required deliverables.
 
 ## Installation readiness
 
-Check the host and the skill directory before starting a tracked project stage.
-The complete installation includes `SKILL.md`, `scripts/five_step.py`, and
-`assets/FiveStepHUD.app/Contents/MacOS/FiveStepHUD` in the same skill directory.
-Local Codex on macOS 14+ is the supported environment. On an unsupported host,
-explain the requirement; do not present text-only coaching as a complete product
-or attempt to run a macOS app there.
+Resolve the directory of the loaded `SKILL.md`; do not assume a Codex path.
+The host must support local Agent Skills and command execution. Use Python 3.9+
+with a graphical desktop for the portable floating HUD; the installer prepares
+its Qt runtime. Linux requires an active desktop compositor for transparency. The native
+backend is for local Codex desktop on macOS 14+ and needs Swift tools to build.
+Codex CLI, Windows, Linux, and other agents use the portable backend.
 
-If the app or helper is missing, report that setup is incomplete and repair it
-within existing authorization. Use an existing verified checkout of
-[this repository](https://github.com/DiyunZ/work-like-musk), or obtain that
-repository when authorized, and run its unified installer:
+A complete installation includes `scripts/five_step.py`, `scripts/runtime_support.py`,
+`scripts/portable_hud.py`, `assets/runtime-config.json`, and `assets/hud-config.json`.
+Read the configuration to identify the installed backend and language. Native mode
+also requires `assets/FiveStepHUD.app/Contents/MacOS/FiveStepHUD`. Existing native
+installations without runtime configuration can be repaired with the installer.
+Portable mode also includes `assets/portable-runtime.json`; the CLI uses its
+verified Python executable to open the GUI, independently of the agent's Python.
+
+If files or dependencies are missing, explain the concrete problem and repair it
+within existing authorization using a verified checkout of
+[this repository](https://github.com/DiyunZ/work-like-musk):
 
 ```sh
-python3 scripts/install.py --skill "/absolute/path/to/the/installed/skill" --language en
+python3 scripts/install.py --agent claude-code --hud portable --skill "<skill-dir>" --language en
 ```
 
-Replace the example path with the actual directory of the loaded `SKILL.md`.
-The installer builds the HUD and installs the whole product, including a fresh
-skill when absent. It also repairs an older installation that contains only the
-instructions. Do not call an installation complete solely because the Markdown
-is present. A build or install failure remains a setup problem; state the concrete
-cause instead of silently switching to a normal text-only mode. Independent
-inspection can continue while a required setup condition is blocked.
+Replace `claude-code` with the current host: `codex`, `claude-code`, `cursor`,
+`gemini-cli`, `opencode`, or `generic`. Replace `<skill-dir>` with the actual loaded
+skill directory. On Windows use `python` instead of `python3`; use native shell
+path quoting, and do not copy Unix environment variables or line continuations
+into PowerShell. Omit `--hud portable` for native Codex desktop on macOS 14+.
+`--skill` supports project-specific or host-specific directories when needed.
 
-After installation, run `setup` below to register and open the current task.
-For first-time title tracking, the user enables it in HUD Settings and grants
-the app macOS Accessibility permission. Respect the host's permission boundaries;
-do not grant that permission automatically. Files installed, app opened, and HUD
-visibly attached are distinct observations. Report only the state verified.
+The installer installs the entire product and preserves customized guidance.
+A missing Qt runtime, unavailable graphical/compositing desktop, or failed launch means setup
+is incomplete. Keep the HUD requirement, state the observed error, and continue
+only independent work while it is unresolved. Installing files and opening a
+window are different checks. Run `setup` below to verify startup. Portable startup
+acknowledges a mapped window; native startup reports only a launch request until
+attachment is observed. Never claim more than the tool or visual evidence shows.
+For native title tracking, the user enables it in HUD Settings and grants macOS
+Accessibility permission. Do not grant that permission automatically.
 
 ## Coaching pace and stage events
 
@@ -86,43 +96,56 @@ solely because an advice message was sent.
 
 ## Setup and reopening
 
-Resolve the skill directory from the SKILL.md being used. Run its installed
-`scripts/five_step.py` with Python 3.9 or newer. These examples use the default
-personal installation; adjust the absolute skill path if installed elsewhere.
+Resolve `<skill-dir>` from the loaded skill and `<project-dir>` from this task's
+actual project directory. In the following commands replace all angle-bracket
+placeholders with observed values; use `python` on Windows and `python3` on Unix.
+Use Python 3.9+ for these commands; the installed GUI runtime is selected automatically.
+
+If the host exposes this conversation's real task/session ID, pass it explicitly:
 
 ```sh
-python3 "$HOME/.codex/skills/work-like-musk/scripts/five_step.py" setup \
-  --project "$PWD" --title "A concise title for the current task"
+python3 "<skill-dir>/scripts/five_step.py" setup --project "<project-dir>" --task "<this-task-id>" --title "A concise title for this task"
 ```
 
-`setup` creates the current task's session, or preserves and reopens an existing
-one. It opens the progress UI without resetting progress. `--no-open` is for
-isolated tests or state maintenance; it does not complete normal product startup.
-The task ID defaults exclusively to
-`CODEX_THREAD_ID`; if unavailable, obtain the actual task ID and pass `--task`.
-Do not guess an ID, use a shared placeholder, or borrow another task's session.
-
-At the start of every relevant turn and before a report, run `show` for this task:
+Codex may omit `--task` when the current task's real `CODEX_THREAD_ID` is available.
+Do not expect that environment variable in other agents. If no host identity is
+available, create a local tracking identity once with the portable backend:
 
 ```sh
-python3 "$HOME/.codex/skills/work-like-musk/scripts/five_step.py" show --project "$PWD"
+python3 "<skill-dir>/scripts/five_step.py" setup --project "<project-dir>" --new-task --hud portable --title "A concise title for this task"
 ```
 
-If no session exists and the user invoked this skill or requested HUD setup,
-run `setup`; otherwise leave it absent. A new session has all steps pending and
-Question ready. Report Question as `in_progress` when requirements work actually
-begins, including asking the first relevant question. Never copy another task's
-progress, infer completion from an existing project, or fill in invented history.
+Retain the returned `taskId` in this conversation's working context and use it as
+`--task` on every later command, including later turns. It is a local tracking ID,
+not a discovered host session ID. Never run `--new-task` each turn, invent a shared
+placeholder, read unrelated conversations, or choose the most recently modified
+session file. If startup fails after state creation, retain the `taskId` from its
+structured error output, repair the cause, and retry with `--task` to reopen it.
+If a retained identity is lost, recover it from this conversation's own setup
+result; if unavailable, create and identify a new session rather than guessing.
 
-Sessions use canonical project paths and task IDs. Opening registers a session;
-it does not make a background task take over the visible bar. The helper checks
-the focused task header against the local task index, resolves a unique ID, and
-shows only that task's registered session. Switching to an unregistered task,
-unknown/ambiguous title, or an unreadable session hides progress immediately on
-the next refresh. Duplicate titles are not guessed. Existing task names are
-preserved; independently registered sessions survive app restart.
-If an old project session has been removed, its missing path no longer blocks a
-remaining registered session for that task. Two existing paths remain ambiguous.
+`setup` creates or reopens this task's session without resetting existing progress.
+`--no-open` is for isolated tests or state maintenance and does not complete normal
+product startup. Native title tracking requires the real Codex task identity;
+a generated local identity uses the portable window.
+
+At each relevant turn and before reporting, read this exact task's current state:
+
+```sh
+python3 "<skill-dir>/scripts/five_step.py" show --project "<project-dir>" --task "<this-task-id>"
+```
+
+If no session exists and the user activated the skill, run setup; otherwise leave
+it absent. A new session has every stage pending. Start Question only when its
+work actually begins, including the first relevant requirements question. Do not
+infer completion from existing files or fill in invented history.
+
+Portable windows show the bound task title, project name, and shortened task ID.
+They remain bound to that identity when the foreground app or conversation changes.
+Each task opens its own window; reopening the same task keeps one instance.
+They do not inspect host UI, chat contents, or task indexes. Native mode instead
+verifies the focused Codex title against its local index and hides progress when
+identity is uncertain. Neither backend borrows another task's state.
 
 ## Report actual stage events
 
@@ -135,10 +158,7 @@ reason, consistent with the closeout already explained to the user. A broad
 "draft complete" reason is insufficient for an operational checkpoint.
 
 ```sh
-python3 "$HOME/.codex/skills/work-like-musk/scripts/five_step.py" update \
-  --project "$PWD" --stage question --status in_progress \
-  --expected-revision 1 \
-  --reason "Checking the requested deliverables and existing project constraints"
+python3 "<skill-dir>/scripts/five_step.py" update --project "<project-dir>" --task "<this-task-id>" --stage question --status in_progress --expected-revision 1 --reason "Checking the requested deliverables and existing project constraints"
 ```
 
 Replace `1` with the revision just returned by `show`; do not hard-code it.
@@ -193,7 +213,25 @@ Direct `update --status skipped` is rejected. Confirmation records and revision
 checks enforce state transitions; the agent must faithfully report the user's
 intent and must not fabricate a confirmation.
 
-## Window and persistence
+## Portable window
+
+The floating window pairs the compact macOS-style progress strip with its task
+title, project, and task identifier. Stage symbols remain visible after completion;
+small badges show completion, waiting, or blocking. Drag the strip to move it. The menu toggles Always on top and Reduce
+motion; the close button or Escape closes only this window and preserves progress.
+Hover a stage for its status, report reason, and timestamp. The rotating ring
+means active work, the red breathing dot means the next eligible stage is
+waiting, checkmarks mean reported completion, and amber means blocked. Hovering,
+clicking, or waiting does not advance work. Invalid or unreadable state clears
+progress and shows an error instead of retaining old checkmarks.
+
+Reopen a closed task window with its retained identity:
+
+```sh
+python3 "<skill-dir>/scripts/five_step.py" open --project "<project-dir>" --task "<this-task-id>"
+```
+
+## Native Codex window (macOS 14+)
 
 The standalone macOS accessory app defaults to a transparent, locked strip beside
 the task title's three-dot button. Enable Title Tracking in Settings and grant
@@ -227,14 +265,17 @@ anchoring. Restore Default Position restores locked title placement without
 clearing Appearance or Accent Color. Close preserves state; reopen with:
 
 ```sh
-python3 "$HOME/.codex/skills/work-like-musk/scripts/five_step.py" open --project "$PWD"
+python3 "<skill-dir>/scripts/five_step.py" open --project "<project-dir>" --task "<this-task-id>"
 ```
+
+## Shared persistence
 
 State lives at `<project>/.work-like-musk/sessions/<sha256(task ID)>.json` and
 survives restarts. Avoid committing this per-task runtime state; honor the
 project's existing ignore policy. Skip reminders are stored in a companion
-`.skip.json` bound to the exact task and revision. Read errors hide the bar to
-avoid presenting stale progress. Accessibility is requested only when the user selects Enable
+`.skip.json` bound to the exact task and revision. Read errors hide the native bar;
+the portable window clears progress and shows the error. Neither retains stale
+checkmarks. Accessibility is requested only when the user selects Enable
 Title Tracking; no background login item is installed.
 The CLI rejects linked runtime directories and non-regular state, request, or
 lock files without replacing them. Preserve such files and resolve their origin;

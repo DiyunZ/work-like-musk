@@ -80,7 +80,7 @@ def main() -> None:
             "CFBundleInfoDictionaryVersion": "6.0",
             "CFBundleName": "FiveStepHUD",
             "CFBundlePackageType": "APPL",
-            "CFBundleShortVersionString": "0.2.0",
+            "CFBundleShortVersionString": "0.3.0",
             "CFBundleVersion": "1",
             "LSMinimumSystemVersion": "14.0",
             "LSSupportsOpeningDocumentsInPlace": True,

@@ -12,6 +12,7 @@ from unittest import mock
 
 
 CLI = Path(__file__).resolve().parents[1] / "skills/work-like-musk/scripts/five_step.py"
+sys.path.insert(0, str(CLI.parent))
 IDS = ["question", "delete", "simplify", "accelerate", "automate"]
 
 
@@ -349,7 +350,9 @@ class ProgressTests(unittest.TestCase):
 
         with mock.patch.object(module, "__file__", str(root / "cli/five_step.py")):
             with mock.patch.object(module.subprocess, "run", return_value=completed) as run:
-                module.open_hud(state_path)
+                with mock.patch.object(module.sys, "platform", "darwin"):
+                    result = module.open_hud(state_path, self.project, self.task, "native")
+                self.assertEqual(result["status"], "launch_requested")
 
         run.assert_called_once_with(
             ["/usr/bin/open", "-g", "-a", str((root / "dist/FiveStepHUD.app").resolve()), str(state_path)],

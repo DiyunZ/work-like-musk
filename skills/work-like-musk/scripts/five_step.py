@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Report evidence-based five-step progress to a local macOS HUD."""
+"""Report evidence-based five-step progress to a local task HUD."""
 
 import argparse
 import copy
 from datetime import datetime, timezone
-import fcntl
 import hashlib
 import json
 import os
@@ -14,7 +13,11 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
+import threading
 import uuid
+
+from runtime_support import file_lock
 
 
 STAGES = ("question", "delete", "simplify", "accelerate", "automate")
@@ -202,15 +205,111 @@ def confirm_skip(state, request_path, request_id, reason):
     return state
 
 
-def open_hud(path):
+HUD_STARTUP_TIMEOUT = 8.0
+AGENTS = ("codex", "claude-code", "cursor", "gemini-cli", "opencode", "generic")
+
+
+def hud_backend(root, requested=None):
+    if requested is not None:
+        return requested
+    config_path = root / "assets/runtime-config.json"
+    if config_path.exists():
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        if (not isinstance(config, dict) or set(config) != {"schemaVersion", "agent", "backend"}
+                or type(config["schemaVersion"]) is not int or config["schemaVersion"] != 1
+                or config["agent"] not in AGENTS or config["backend"] not in ("native", "portable")):
+            raise ValueError("Invalid HUD runtime configuration; reinstall or choose --hud")
+        return config["backend"]
+    return "native" if sys.platform == "darwin" and native_app(root) else "portable"
+
+
+def native_app(root):
+    return next((root / folder / "FiveStepHUD.app" for folder in ("assets", "dist")
+                 if (root / folder / "FiveStepHUD.app/Contents/MacOS/FiveStepHUD").is_file()), None)
+
+
+def portable_python(root):
+    config_path = root / "assets/portable-runtime.json"
+    if not config_path.exists():
+        return sys.executable
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    if (not isinstance(config, dict) or set(config) != {"schemaVersion", "pythonExecutable"}
+            or type(config["schemaVersion"]) is not int or config["schemaVersion"] != 1
+            or not isinstance(config["pythonExecutable"], str)):
+        raise ValueError("Invalid portable HUD Python runtime configuration; reinstall the skill (state is preserved)")
+    executable = Path(config["pythonExecutable"])
+    if not executable.is_absolute() or not executable.is_file():
+        raise ValueError("Portable HUD Python runtime is missing or invalid; reinstall the skill (state is preserved)")
+    # Keep the venv path: resolving its interpreter symlink would lose its packages.
+    return str(executable)
+
+
+def open_hud(path, project, task, backend=None):
     root = Path(__file__).resolve().parents[1]
-    app = next((root / folder / "FiveStepHUD.app" for folder in ("assets", "dist")
-                if (root / folder / "FiveStepHUD.app/Contents/MacOS/FiveStepHUD").is_file()), None)
-    if app is None:
-        raise ValueError("FiveStepHUD.app is missing; build and install it first (state is preserved)")
-    result = subprocess.run(["/usr/bin/open", "-g", "-a", str(app), str(path)], capture_output=True, text=True)
-    if result.returncode:
-        raise ValueError(f"Could not open the HUD (state is preserved): {result.stderr.strip()}")
+    backend = hud_backend(root, backend)
+    if backend == "native":
+        if sys.platform != "darwin":
+            raise ValueError("Native HUD requires macOS; choose --hud portable (state is preserved)")
+        app = native_app(root)
+        if app is None:
+            raise ValueError("FiveStepHUD.app is missing; build and install it first (state is preserved)")
+        result = subprocess.run(["/usr/bin/open", "-g", "-a", str(app), str(path)], capture_output=True, text=True)
+        if result.returncode:
+            raise ValueError(f"Could not open the HUD (state is preserved): {result.stderr.strip()}")
+        return {"backend": "native", "status": "launch_requested", "taskId": task}
+    language_path = root / "assets/hud-config.json"
+    language = "en"
+    if language_path.exists():
+        config = json.loads(language_path.read_text(encoding="utf-8"))
+        if not isinstance(config, dict) or set(config) != {"language"} or config["language"] not in ("en", "zh-CN"):
+            raise ValueError("Invalid HUD language configuration (state is preserved)")
+        language = config["language"]
+    launcher = root / "scripts/portable_hud.py"
+    if not launcher.is_file():
+        raise ValueError("Portable HUD is missing; reinstall the skill (state is preserved)")
+    executable = portable_python(root)
+    with tempfile.TemporaryDirectory(prefix="wlm-hud-ready-") as directory:
+        ready = Path(directory).resolve() / "ready.json"
+        options = {"creationflags": subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
+        child = subprocess.Popen([executable, str(launcher), "--project", str(project.resolve()),
+                                  "--task", task, "--state", str(path), "--language", language,
+                                  "--ready-file", str(ready)], stdin=subprocess.DEVNULL,
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **options)
+        deadline = time.monotonic() + HUD_STARTUP_TIMEOUT
+        try:
+            while time.monotonic() < deadline:
+                if ready.exists():
+                    with ready.open("rb") as stream:
+                        payload = stream.read(MAX_BYTES + 1)
+                    if len(payload) > MAX_BYTES:
+                        raise ValueError("Portable HUD startup response is too large")
+                    response = json.loads(payload)
+                    if not isinstance(response, dict) or response.get("taskId") != task:
+                        raise ValueError("Portable HUD startup identity mismatch")
+                    status = response.get("status")
+                    if status == "error":
+                        raise ValueError(f"Portable HUD startup failed (state is preserved): {response.get('error', 'unknown error')}")
+                    if status not in ("opened", "already_open"):
+                        raise ValueError("Invalid portable HUD startup status")
+                    # Keep a reaper while embedded callers remain alive; CLI exit leaves the detached HUD running.
+                    threading.Thread(target=child.wait, daemon=True).start()
+                    return {"backend": "portable", "status": status, "taskId": task}
+                if child.poll() is not None:
+                    # The child may publish readiness between our file check and poll.
+                    if ready.exists():
+                        continue
+                    raise ValueError(f"Portable HUD exited before startup confirmation (exit {child.returncode}; state is preserved)")
+                time.sleep(0.05)
+            raise ValueError("Portable HUD startup timed out (state is preserved)")
+        except (OSError, ValueError):
+            if child.poll() is None:
+                child.terminate()
+                try:
+                    child.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    child.kill()
+                    child.wait(timeout=2)
+            raise
 
 
 def parser():
@@ -219,8 +318,12 @@ def parser():
     for command in ("setup", "update", "show", "open", "request-skip", "confirm-skip"):
         sub = subcommands.add_parser(command)
         sub.add_argument("--project", default=os.getcwd(), help="Project directory (default: current directory)")
-        sub.add_argument("--task", default=os.environ.get("CODEX_THREAD_ID"), help="Task ID (default: CODEX_THREAD_ID)")
+        identity = sub.add_mutually_exclusive_group()
+        identity.add_argument("--task", help="Task ID (default: CODEX_THREAD_ID)")
+        if command in ("setup", "open"):
+            sub.add_argument("--hud", choices=("native", "portable"), help="Override the installed HUD backend")
         if command == "setup":
+            identity.add_argument("--new-task", action="store_true", help="Generate a local tracking ID")
             sub.add_argument("--title", help="Task title (default: task ID; existing titles are preserved)")
             sub.add_argument("--no-open", action="store_true", help="Create/validate state without opening the HUD")
         if command == "update":
@@ -244,7 +347,8 @@ def main():
     command_parser = parser()
     args = command_parser.parse_args()
     try:
-        task = checked_text(args.task, "Task ID (--task or CODEX_THREAD_ID)", 200)
+        task = "wlm-" + str(uuid.uuid4()) if getattr(args, "new_task", False) else args.task or os.environ.get("CODEX_THREAD_ID")
+        task = checked_text(task, "Task ID (--task, setup --new-task, or CODEX_THREAD_ID)", 200)
         project = Path(args.project).expanduser().resolve(strict=True)
         if not project.is_dir():
             raise ValueError("Project must be an existing directory")
@@ -260,8 +364,7 @@ def main():
             path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         elif not path.is_file():
             raise ValueError("This task has no session; run setup first")
-        with lock_path.open("a") as lock:
-            fcntl.flock(lock, fcntl.LOCK_EX)
+        with lock_path.open("a+b") as lock, file_lock(lock):
             if path.exists():
                 state = load(path, project, task)
             elif args.command == "setup":
@@ -299,17 +402,29 @@ def main():
                 validate(updated, project, task)
                 atomic_write(path, updated)
                 state = updated
+        hud = None
+        launch_error = None
         if args.command == "open" or (args.command == "setup" and not args.no_open):
-            open_hud(path)
+            try:
+                hud = open_hud(path, project, task, args.hud)
+            except (OSError, ValueError, TypeError, KeyError) as error:
+                # Preserve recovery information even when setup generated a new ID.
+                launch_error = str(error)
+                hud = {"status": "error", "error": launch_error, "taskId": task}
         if args.command == "show":
-            print(json.dumps(state, ensure_ascii=False, indent=2))
+            print(json.dumps(state, indent=2))
         else:
             current = state["currentStage"]
-            result = {"statePath": str(path), "revision": state["revision"], "currentStage": current,
+            result = {"taskId": task, "statePath": str(path), "revision": state["revision"], "currentStage": current,
                       "status": state["stages"][STAGES.index(current)]["status"] if current else "pending"}
+            if hud is not None:
+                result["hud"] = hud
             if skip_request is not None:
                 result["skipRequest"] = skip_request
             print(json.dumps(result))
+        if launch_error is not None:
+            print(f"five-step: {launch_error}", file=sys.stderr)
+            return 2
         return 0
     except (OSError, ValueError, TypeError, KeyError) as error:
         print(f"five-step: {error}", file=sys.stderr)
