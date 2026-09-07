@@ -23,17 +23,7 @@ def main() -> None:
 
     executable = temporary / "Contents" / "MacOS" / "FiveStepHUD"
     executable.parent.mkdir(parents=True)
-    source_files = [
-        str(ROOT / "native" / "HUDLanguage.swift"),
-        str(ROOT / "native" / "ProgressState.swift"),
-        str(ROOT / "native" / "HUDSessions.swift"),
-        str(ROOT / "native" / "HUDPlacement.swift"),
-        str(ROOT / "native" / "TitleAnchor.swift"),
-        str(ROOT / "native" / "HUDPreferences.swift"),
-        str(ROOT / "native" / "HUDSettingsView.swift"),
-        str(ROOT / "native" / "HUDView.swift"),
-        str(ROOT / "native" / "App.swift"),
-    ]
+    source_files = [str(source) for source in sorted((ROOT / "native").glob("*.swift"))]
 
     try:
         subprocess.run(

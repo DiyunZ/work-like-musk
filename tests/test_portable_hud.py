@@ -453,14 +453,14 @@ sys.exit(portable_hud.main(sys.argv[5:]))
         self.assertEqual(response['status'],'error')
         self.assertNotEqual(child.wait(timeout=5),0)
 
-    def test_native_qt_plugin_abort_reports_concrete_readiness_error(self):
+    def test_native_qt_plugin_failure_reports_error_without_crash(self):
         env = dict(os.environ, QT_QPA_PLATFORM='an-invalid-plugin')
         child, response = self.launch(self.project/'plugin-error.json', env=env)
         self.assertEqual(response['status'], 'error')
         self.assertEqual(response['taskId'], 'task-one')
         self.assertIn('platform plugin', response['error'].lower())
         self.assertIn('an-invalid-plugin', response['error'])
-        self.assertNotEqual(child.wait(timeout=5), 0)
+        self.assertEqual(child.wait(timeout=5), 2, 'Handled startup failure must exit without a native crash')
         self.assertEqual(five_step.load(self.path,self.project,'task-one'), self.state)
 
     def test_windows_plugin_failure_exits_before_modal_dialog_and_keeps_fallback(self):

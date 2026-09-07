@@ -40,31 +40,6 @@ AGENT_DIRECTORIES = {
     "opencode": ".config/opencode/skills/work-like-musk",
     "generic": ".agents/skills/work-like-musk",
 }
-SECTION = f"""{START}
-## Integrated Live Progress HUD
-
-Work Like Musk combines project coaching and a live progress HUD on Windows,
-Linux desktops, and macOS for local agents that can load Agent Skills and run Python.
-On project invocation and turns with an existing session, read
-[the live progress guide](references/live-progress.md). Check the installation,
-initialize/open this task's own session, and report actual stage events with the
-current revision. Resolve paths from this loaded skill, use the installed backend,
-and retain this conversation's actual host ID or the tracking ID returned by setup.
-The portable floating window explicitly names its bound task; native Codex title
-tracking remains available on macOS 14+. The HUD is part of the standard workflow.
-A missing runtime, Qt dependency, graphical desktop, or
-failed setup is an incomplete product setup: explain the concrete issue and
-repair it within existing authorization. Do not silently substitute text-only
-coaching or claim the HUD is ready. Useful independent inspection can continue
-while a required setup condition is unresolved.
-Explain scoped checkpoints and evidence before stage reports. Keep the stage
-record and next move in the final response, even when commentary collapses.
-By default, complete only the current stage and wait for the user's reply before
-the next; continuous execution requires an explicit request. The guide supplies the confirmed-skip and
-reopening protocol; display state does not decide the next project action.
-Coach in the user's conversation language. Use English for new HUD report reasons
-unless requested otherwise; preserve existing report text as recorded.
-{END}"""
 CHINESE_SECTION = f"""{START}
 ## 一体化实时进度 HUD
 
@@ -215,13 +190,13 @@ def choose_language(skill, requested):
 def managed_entrypoint(content, language="en"):
     if language not in LANGUAGES:
         raise ValueError("Language must be en or zh-CN")
-    section = CHINESE_SECTION if language == "zh-CN" else SECTION
+    stock = (ROOT / "skills/work-like-musk/SKILL.md").read_text(encoding="utf-8")
+    section = CHINESE_SECTION if language == "zh-CN" else stock[stock.index(START):stock.index(END) + len(END)]
     frontmatter = re.match(r"\A---\r?\n[\s\S]*?^name:\s*[\"']?work-like-musk[\"']?\s*$[\s\S]*?^---\s*$", content, re.M)
     if not frontmatter:
         raise ValueError("Target must be an existing work-like-musk SKILL.md")
     description = re.search(r"^description:[^\r\n]*", frontmatter.group(), re.M)
     if description is not None and description.group() == LEGACY_DESCRIPTION:
-        stock = (ROOT / "skills/work-like-musk/SKILL.md").read_text(encoding="utf-8")
         current = re.search(r"^description:[^\r\n]*", stock, re.M).group()
         content = content[:description.start()] + current + content[description.end():]
     if START not in content and END not in content:

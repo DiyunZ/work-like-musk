@@ -338,6 +338,18 @@ class PortableInstallTests(unittest.TestCase):
         spec.loader.exec_module(module)
         return module
 
+    def test_english_guide_updates_follow_source_and_preserve_custom_guidance(self):
+        installer = self.installer_module()
+        stock = self.base / "source/skills/work-like-musk/SKILL.md"
+        stock.parent.mkdir(parents=True)
+        stock.write_text((ROOT / "skills/work-like-musk/SKILL.md").read_text(encoding="utf-8")
+                         .replace("## Integrated Live Progress HUD", "## Updated HUD guidance"), encoding="utf-8")
+        with mock.patch.object(installer, "ROOT", self.base / "source"):
+            updated = installer.managed_entrypoint(ORIGINAL.decode())
+        self.assertTrue(updated.startswith(ORIGINAL.decode()))
+        self.assertIn("## Updated HUD guidance", updated)
+        self.assertNotIn("## Integrated Live Progress HUD", updated)
+
     def test_fresh_portable_install_is_complete_without_a_native_app(self):
         result = self.invoke()
         self.assertEqual(result.returncode, 0, result.stderr)

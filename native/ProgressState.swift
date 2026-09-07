@@ -57,10 +57,6 @@ struct ProgressState: Equatable {
     let currentStage: StageID?
     let stages: [Stage]
 
-    var projectName: String {
-        URL(fileURLWithPath: projectPath).lastPathComponent
-    }
-
     // Readiness is derived from explicit reports; it never starts a stage.
     var waitingStageID: StageID? {
         guard let next = stages.first(where: { !$0.status.isTerminal }),
